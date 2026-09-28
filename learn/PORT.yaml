@@ -1,0 +1,128 @@
+mnemonic: PORT
+full_name: Portfolio & Risk Analytics
+
+what_it_does: |
+  Analyses a basket of securities as a single portfolio: cumulative return, annualised
+  volatility, maximum drawdown, and the correlation between each pair of holdings. On the
+  real terminal you can build a portfolio from actual trades and positions, with live
+  weights, benchmarks and risk decomposition.
+
+  This app takes a typed list of tickers and weights (for example `AAPL:0.6,MSFT:0.4
+  PORT`), assumes a fixed-weight, rebalanced-daily portfolio, and adds a volatility
+  section: historical (flat) volatility plotted against a GARCH(1,1) fit's time-varying
+  estimate, on the portfolio's own return series.
+
+why_analysts_use_it: |
+  A single stock's numbers don't tell you how a combination of them behaves together.
+  Two volatile stocks that move in opposite directions can make a calmer portfolio than
+  either one alone; two that move together do not diversify each other at all. PORT
+  turns a list of holdings into the numbers that actually describe the combined risk and
+  return, not just the sum of the parts.
+
+key_concepts:
+  - term: Fixed weights vs buy-and-hold
+    explanation: >
+      This app assumes the portfolio is rebalanced back to its target weights every day:
+      the portfolio's daily return is the weighted average of each holding's return that
+      day, using the same weights every day. A real buy-and-hold portfolio's weights
+      drift as prices move (a winner becomes a bigger share over time), which is a
+      different, harder calculation this app does not do.
+  - term: Weight normalisation
+    explanation: >
+      Weights don't have to be typed as fractions that sum to 1. `AAPL:2,MSFT:1` is
+      treated as a 2:1 ratio and normalised to 0.667/0.333, the same as typing
+      `AAPL:0.667,MSFT:0.333` directly.
+  - term: Correlation
+    explanation: >
+      A number from -1 to +1 describing how two return series move together: +1 means
+      they always move in the same direction by proportional amounts, -1 means always
+      opposite, 0 means no linear relationship. Combining highly correlated holdings adds
+      little diversification even if you hold many of them.
+  - term: Diversification
+    explanation: >
+      Combining assets that are not perfectly correlated can give a portfolio lower
+      volatility than the weighted average of its parts' individual volatilities,
+      because their ups and downs partly cancel out. The less correlated the holdings,
+      the bigger this effect.
+  - term: Historical (flat) volatility vs GARCH
+    explanation: >
+      Historical volatility is a single number: the standard deviation of past returns,
+      annualised, treated as constant. GARCH(1,1) instead estimates volatility day by
+      day, reacting to recent shocks and slowly reverting to a long-run average, which
+      matches how real markets actually behave (calm periods and turbulent periods,
+      not a constant hum). See GC's related concept for more on volatility clustering,
+      or read GARCH(1,1) itself below.
+  - term: GARCH(1,1)
+    explanation: >
+      Models tomorrow's variance as sigma^2_t = omega + alpha * epsilon^2_(t-1) +
+      beta * sigma^2_(t-1): a constant floor (omega), plus a share (alpha) of
+      yesterday's squared surprise return, plus a share (beta) of yesterday's variance.
+      alpha measures how reactive volatility is to news; beta measures how persistent it
+      is. alpha + beta must be under 1, or shocks would never fade; when it is under 1,
+      variance reverts to a long-run level of omega / (1 - alpha - beta).
+
+how_to_read_the_output:
+  - Check the weights table first; they are normalised, so they may not exactly match what you typed if it didn't already sum to 1.
+  - Read total return, volatility and max drawdown together. A high return with a deep drawdown means a bumpy ride to get there, not a smooth one.
+  - On the correlation matrix, look for pairs close to +1 (little diversification benefit between them) and pairs near 0 or negative (real diversification).
+  - On the GARCH chart, check whether the time-varying line is currently above or below the flat line. Above means the portfolio is more volatile right now than its long-run average; below means calmer than usual.
+  - alpha and beta describe the fitted model, not a forecast guarantee. A high beta (close to 1) means today's volatility regime is expected to persist for a while, not forever.
+
+common_mistakes:
+  - Assuming the reported volatility applies to each holding individually; it is the combined portfolio's volatility, which can be lower than any single holding's if they diversify each other.
+  - Reading a correlation of, say, 0.3 as "30% similar"; correlation is not a percentage of similarity, it is a specific statistical measure of linear co-movement.
+  - Treating this app's fixed-weight, rebalanced-daily assumption as if it matched a buy-and-hold portfolio's actual behaviour.
+  - Reading GARCH's alpha and beta as returns or performance figures; they describe how volatility itself evolves, not the portfolio's growth.
+  - Over-trusting a GARCH fit on a short or unusual return history; a poor or unstable fit is possible, especially with fewer trading days of overlapping data.
+
+interview_questions:
+  - question: Why might a portfolio's volatility be lower than the average of its holdings' individual volatilities?
+    model_answer: >
+      Diversification: if the holdings are not perfectly correlated, their daily moves
+      partly offset each other, so the combined series swings less than any single
+      holding would on its own. The lower the correlation between holdings, the bigger
+      this effect; if everything were perfectly correlated (correlation of 1), there
+      would be no diversification benefit at all.
+  - question: What does a GARCH(1,1) model add that a single historical volatility number does not?
+    model_answer: >
+      It lets volatility change over time instead of assuming it is constant. Markets
+      go through calm and turbulent periods (volatility clustering), and GARCH captures
+      that a big shock today makes a big move tomorrow more likely, then lets that
+      effect fade back toward a long-run average, controlled by alpha (reactivity) and
+      beta (persistence).
+  - question: What does it mean if alpha + beta in a GARCH fit is close to 1?
+    model_answer: >
+      That volatility shocks are very persistent, decaying slowly rather than quickly
+      reverting to the long-run average. If alpha + beta reached or exceeded 1, the
+      model would no longer be stationary, meaning variance would not settle to a
+      long-run level at all, it would tend to grow without bound, which is not
+      realistic for most real markets over the long run.
+  - question: Your app assumes daily rebalancing to fixed weights. What would be different about a buy-and-hold portfolio?
+    model_answer: >
+      In buy-and-hold, weights drift as prices move; a holding that outperforms becomes
+      a larger share of the portfolio over time, so its later returns matter more than
+      a fixed-weight calculation would suggest. Computing a true buy-and-hold return
+      needs to track each holding's actual position size over time, not just apply the
+      same starting weights to every day's returns.
+  - question: How would you verify a GARCH fit is reasonable, beyond trusting the library?
+    model_answer: >
+      Check that alpha + beta is under 1 (a stationary process), that the fitted
+      volatility rises around known volatile periods and falls in calm ones, and that
+      the long-run variance implied by the parameters is a plausible number for the
+      asset. I also independently reimplemented the GARCH(1,1) recursion by hand from
+      the fitted parameters and confirmed it reproduces the library's own output exactly,
+      which verifies the formula is being applied correctly, though it does not verify
+      that the fitted parameters themselves are the best possible fit.
+
+terminal_checklist:
+  - Run `PORT <GO>` and find how to build a basket of tickers and weights from scratch.
+  - Build a 2-stock portfolio of two correlated stocks in the same sector, and a second portfolio of two stocks from different sectors; compare the two correlation matrices.
+  - Find the volatility and correlation figures the terminal reports for a basket and compare them with this app's numbers for the same tickers and weights over a similar window.
+  - Find a historical volatility function (often HVT or HVG) and compare a single stock's flat annualised volatility with what this app computes for that stock alone.
+  - Look for a GARCH or volatility-forecast feature (availability varies) and compare its shape with this app's GARCH chart.
+  - Check whether the terminal's default portfolio calculation assumes rebalancing or buy-and-hold weights, and how to switch between them.
+
+related_functions:
+  - GP
+  - HP
+  - GC

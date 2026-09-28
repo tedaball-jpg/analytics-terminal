@@ -1,0 +1,94 @@
+mnemonic: FXC
+full_name: FX Cross Rates
+
+what_it_does: |
+  Shows a matrix of exchange rates between a basket of currencies: for every pair, how
+  many units of one currency a unit of the other buys. On the real terminal the basket
+  covers dozens of currencies and updates continuously through the trading day.
+
+  This app supports a fixed basket of four currencies: USD, GBP, EUR and JPY. You type
+  a base currency (for example `GBP FXC`) and get that currency's rate against the other
+  three, plus the full 4x4 matrix.
+
+why_analysts_use_it: |
+  A single pair (like GBP/USD) only tells you about those two currencies. A cross-rate
+  matrix lets you check consistency across several currencies at once, and quickly find
+  the rate for a pair that is not quoted directly, such as GBP/JPY.
+
+key_concepts:
+  - term: Base and quote currency
+    explanation: >
+      In a pair like GBP/USD, GBP is the base and USD is the quote: the rate is how many
+      USD one GBP buys. Swap the order and the rate is the reciprocal: USD/GBP is
+      1 divided by GBP/USD. This app's matrix reads as row = base, column = quote.
+  - term: Triangulation
+    explanation: >
+      Most currency pairs are not quoted directly against each other; instead each is
+      quoted against a common currency (usually USD), and the cross rate is computed:
+      GBP -> JPY is done as GBP -> USD -> JPY, dividing the JPY-per-USD rate by the
+      GBP-per-USD rate. This is exactly how this app's `build_cross_matrix` works, and it
+      is how real FX cross rates are generally built too.
+  - term: Why the anchor currency should not matter
+    explanation: >
+      Because triangulation only uses ratios, the choice of USD as the anchor currency is
+      a computational convenience. Rescaling every USD rate by the same factor (as if a
+      different currency had been used as the anchor) leaves every cross rate unchanged,
+      which is a property this app's tests check directly.
+  - term: Small triangulation gaps
+    explanation: >
+      A triangulated rate can differ very slightly from a directly-quoted rate for the
+      same pair, because the two USD legs are snapshotted at slightly different moments
+      and each carries its own tiny bid/ask spread. On a real trading desk this gap is
+      also the basis of triangular arbitrage, a strategy that profits from momentary
+      pricing gaps between three currencies.
+
+how_to_read_the_output:
+  - Read the matrix as row currency buys column currency. The GBP row, JPY column cell is how many JPY one GBP buys.
+  - The diagonal is always 1.00 (a currency against itself).
+  - The matrix is reciprocal. The JPY row, GBP column cell should be very close to 1 divided by the GBP row, JPY column cell.
+  - This app rounds every rate to 4 decimal places for consistency; real FX screens usually show JPY pairs to 2 decimal places and other pairs to 4.
+
+common_mistakes:
+  - Reading a rate as if the base and quote were swapped (confusing GBP/USD with USD/GBP, which are reciprocals of each other, not the same number).
+  - Assuming a triangulated cross rate exactly matches a directly-quoted rate for the same pair; small gaps are normal, not a bug.
+  - Treating this app's 4-currency basket as comprehensive. It only covers USD, GBP, EUR and JPY.
+  - Forgetting that FX rates move throughout the trading day; a rate is only as fresh as when it was cached (up to 10 minutes here).
+
+interview_questions:
+  - question: What does it mean to triangulate a currency cross rate, and why is it needed?
+    model_answer: >
+      Most currency pairs are not quoted directly against each other; each is quoted
+      against a common currency, usually USD. To get GBP/JPY, I compute GBP/USD and
+      USD/JPY, or equivalently divide JPY-per-USD by GBP-per-USD. It is needed because
+      quoting every possible pair directly would need far more liquidity and data than
+      quoting everything against one anchor and deriving the rest.
+  - question: If you used EUR instead of USD as your anchor currency, would your cross rates change?
+    model_answer: >
+      No. Triangulation only uses ratios between the anchor-currency rates, so rescaling
+      every rate by the same factor, which is what changing the anchor does, cancels out
+      in the division. I have a test for exactly this: rescaling the input and rebuilding
+      the matrix gives the same matrix.
+  - question: Why might a triangulated GBP/JPY rate differ slightly from a directly-quoted GBP/JPY rate?
+    model_answer: >
+      The two legs, GBP/USD and USD/JPY, are snapshotted independently and each has its
+      own tiny bid/ask spread, so a triangulated rate is an approximation, not the exact
+      quote a dealer would give you. That small gap is also the basis of triangular
+      arbitrage, trading around a temporary mispricing between three currencies.
+  - question: What's the difference between a currency pair and a cross rate?
+    model_answer: >
+      Loosely, a "cross rate" usually refers to a pair that does not involve the US
+      dollar, like GBP/JPY, because historically such rates were computed (crossed)
+      through the dollar rather than quoted directly. A pair like GBP/USD is a direct
+      quote. My app's matrix includes both: dollar pairs and true cross rates, all built
+      the same triangulated way for consistency.
+
+terminal_checklist:
+  - Run `FXC <GO>` and note the default currency basket shown.
+  - Compare this app's GBP/USD rate with the terminal's directly-quoted GBP/USD.
+  - Compare this app's GBP/JPY rate (triangulated here) with the terminal's directly-quoted GBP/JPY, and note the size of any gap.
+  - Find how many decimal places the terminal shows for a JPY pair versus a non-JPY pair.
+  - Change the base currency in this app to each of USD, EUR and JPY and check the matrix stays reciprocal and consistent.
+
+related_functions:
+  - GC
+  - GP

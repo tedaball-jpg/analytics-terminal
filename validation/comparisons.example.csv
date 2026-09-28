@@ -1,0 +1,4 @@
+date_checked,function,ticker,window,metric,my_value,bloomberg_value,difference,explanation
+2026-01-15,GP,AAPL US,2y daily dividend-adjusted,total_return,50.12,50.08,0.04,FABRICATED EXAMPLE ROW - not a real comparison
+2026-01-15,GP,AAPL US,2y daily,annualised_volatility,28.8,29.1,-0.3,FABRICATED EXAMPLE ROW - illustrates citing a cause from common_mismatch_causes.md #3
+2026-01-16,HP,AZN LN,2y daily,52w_high,344.57,344.50,0.07,FABRICATED EXAMPLE ROW - not a real comparison

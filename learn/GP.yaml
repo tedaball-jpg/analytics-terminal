@@ -1,0 +1,159 @@
+mnemonic: GP
+full_name: Graph Price
+
+what_it_does: |
+  Draws a price chart for the security in your command line, for example
+  `AAPL US Equity GP <GO>`. On the real terminal you can change the chart type
+  (line, candlesticks, bars), pick the date range and periodicity, switch
+  between linear and log scales, overlay studies such as moving averages, RSI
+  and volume, and compare the security against others on the same chart.
+
+  In this app GP draws a line of daily closing prices for the last two years,
+  with a price-basis switch and three statistics underneath: return,
+  annualised volatility and maximum drawdown. Those statistics are this app's
+  own addition, calculated in `analytics.py`.
+
+why_analysts_use_it: |
+  It is usually the first thing you look at for any security. In a few seconds
+  it shows the trend, how violent the swings have been, and whether something
+  unusual happened (a gap, a crash, a split). Analysts use it to sanity-check a
+  price before quoting it, to spot events worth investigating, and to compare
+  how two securities have moved relative to each other. The three statistics
+  turn the picture into numbers: how much you made, how bumpy the ride was,
+  and how bad the worst fall was.
+
+key_concepts:
+  - term: Split-adjusted vs dividend-adjusted prices
+    explanation: >
+      A 2-for-1 split halves the quoted price overnight without anyone losing
+      money, so charts rescale old prices to remove the fake crash
+      (split-adjusted). Dividends work similarly: each payment lowers the price
+      on the ex-dividend date, so dividend-adjusted history scales old prices
+      down to include what shareholders received. Yahoo does not provide raw,
+      never-adjusted quotes. This app offers both of its options: split-adjusted
+      only (use it for price levels, since it is closest to what traded) and
+      dividend-adjusted (use it for returns).
+  - term: Price return vs total return
+    explanation: >
+      Price return is the change in the price alone. Total return also counts
+      dividends received. For a dividend payer, total return is higher, and it
+      is the fair measure of what an investor earned. On this page it is the
+      difference between the two price-basis options.
+  - term: Returns compound
+    explanation: >
+      A return is P_end / P_start - 1. Daily returns multiply, not add: +10%
+      then -10% leaves you at -1%, not 0%, because the second move is on a
+      bigger base. This is why the statistics are computed from returns and not
+      from adding percentages up.
+  - term: Volatility (annualised)
+    explanation: >
+      The standard deviation of returns, a measure of how widely they scatter.
+      Daily volatility is scaled by the square root of 252 (trading days per
+      year) to give an annual figure, because if returns are independent the
+      variance grows in proportion to time, so the standard deviation grows with
+      its square root. A stock at 30% annualised volatility typically moves
+      about 30% a year either side of its average, roughly two-thirds of the
+      time.
+  - term: Maximum drawdown
+    explanation: >
+      How far the price fell from a peak to the lowest point after it,
+      price / running_maximum - 1. It captures the pain of the worst episode
+      in the window, which volatility (a symmetric average) does not.
+  - term: Linear vs log scale
+    explanation: >
+      On a linear axis, equal vertical distances are equal price changes. On a
+      log axis, equal distances are equal percentage changes (10 to 20 looks
+      like 110 to 220). Over long periods, log is the honest way to compare
+      moves. This app's chart is linear.
+  - term: Quote units and currency
+    explanation: >
+      London stocks are usually quoted in pence (GBp), not pounds. AstraZeneca
+      showing about 12,000 means about 120 pounds. Returns and drawdowns are
+      unaffected, since they are ratios, but any price level is off by 100 if
+      you read pence as pounds.
+
+how_to_read_the_output:
+  - Check the axes first. What currency or unit is it, and what date range is shown?
+  - Read the trend, but remember it depends on the window. A different start date can tell a different story.
+  - Look for sudden jumps or drops and ask what caused them (earnings, news, a split, bad data) before drawing any conclusion.
+  - Read the three statistics together. Return alone hides the path. Two stocks can end with the same return, one with a smooth climb and one with a 40% drawdown along the way.
+  - Switch the price basis. For a dividend payer, total return should be higher than price return. If it is not, something is wrong.
+  - Read the drawdown dates. They tell you when the worst peak-to-trough fall started and ended, which you can then look up in the news.
+  - The chart is a line of daily closes over roughly two years. It has no volume, candlesticks or studies.
+
+common_mistakes:
+  - Reading pence as pounds for London-listed stocks.
+  - Choosing a date range that flatters your story, for example starting the chart at a market low.
+  - Comparing the raw price levels of two stocks instead of rebasing them or comparing returns.
+  - Mixing bases, for example quoting a dividend-adjusted price as if it were what the stock traded at.
+  - Adding daily returns instead of compounding them.
+  - Quoting daily volatility as if it were annual, or annualising weekly returns with the daily factor of 252 (weekly needs 52, monthly needs 12).
+  - Treating the maximum drawdown as the worst that could happen. It is only the worst that happened in this window.
+  - Reading patterns into noise and treating a past chart shape as a forecast.
+
+interview_questions:
+  - question: A stock's chart shows a 50% drop overnight. Is that a real loss?
+    model_answer: >
+      Not necessarily. It could be a 2-for-1 stock split, where the price
+      halves but each shareholder holds twice as many shares. I would check
+      the corporate actions and use a split-adjusted series. If it is a real
+      fall, I would look for news or an earnings release on that date.
+  - question: What is the difference between price return and total return, and which would you use to compare two stocks?
+    model_answer: >
+      Price return is only the change in the price. Total return also includes
+      dividends. To compare two stocks I would use total return, otherwise a
+      high dividend payer looks worse than it really was for its shareholders.
+      In my app that is the dividend-adjusted basis.
+  - question: Why do you multiply daily volatility by the square root of 252?
+    model_answer: >
+      If daily returns are independent with the same variance, the variance
+      over 252 days is 252 times the daily variance, so the standard deviation
+      scales with the square root, giving daily volatility times root 252. It
+      is an approximation, because real volatility clusters (calm periods and
+      turbulent periods), which is what a GARCH model captures. That is why my
+      portfolio module fits one.
+  - question: What is maximum drawdown and what are its limits?
+    model_answer: >
+      The largest fall from a previous peak to a later trough, price divided
+      by the running maximum minus one. It shows the worst episode an investor
+      would have lived through, which volatility does not. Its limits are that
+      it depends entirely on the window chosen, it is a single event so it is
+      noisy, and it says nothing about how long the recovery took.
+  - question: Would you use a linear or log scale for ten years of prices?
+    model_answer: >
+      Log. On a log scale equal vertical distances are equal percentage
+      changes, so a move from 10 to 20 looks like a move from 100 to 200. On a
+      linear scale recent moves dominate the picture just because the price
+      level is higher, which misleads you about how big earlier moves were.
+  - question: How would you compare the performance of two stocks on one chart?
+    model_answer: >
+      Rebase both to 100 (or 0%) at the same start date and plot the
+      percentage change, in the same currency, using total return prices so a
+      high dividend payer is not understated. Raw prices are not comparable.
+  - question: Why might your app's numbers differ from Bloomberg's for the same stock?
+    model_answer: >
+      The data source is different (Yahoo Finance versus Bloomberg), the
+      adjustment method for splits and dividends may differ, the date window
+      and the volatility convention (252 days, sample standard deviation) may
+      differ, and closing prices can differ slightly by timing. I would
+      reconcile them by fixing the same dates and basis on both.
+
+terminal_checklist:
+  - Run `AAPL US Equity GP <GO>` and identify the chart type, the date range and the currency shown.
+  - Switch between line and candlestick and note what information each one adds or hides.
+  - Try the preset ranges (for example 1M, 1Y, 5Y, Max) and see how the story changes with the window.
+  - Find the linear/log scale setting and compare both on a 5-year or longer range.
+  - Add a moving average and a volume study. Find where the study settings live.
+  - Compare AAPL against an index such as SPX Index using the percentage change or rebased view.
+  - Find the setting that changes how splits and dividends are adjusted, and note how the chart changes.
+  - Look at a stock with a known split (AAPL 4-for-1 in August 2020, NVDA 10-for-1 in June 2024) with and without split adjustment.
+  - Set the same two-year window here and on the terminal, and compare the price return over the range with this app's price return.
+  - Look for a historical volatility function (usually HVT or HVG; confirm the mnemonic with the function search) and compare its figure with this app's annualised volatility. Expect small differences from the window and convention.
+  - Run `AZN LN Equity GP <GO>` and check which currency the price is quoted in.
+  - Put the same ticker into this app and list every difference you can see.
+
+related_functions:
+  - HP
+  - DES
+  - GIP
+  - HVT

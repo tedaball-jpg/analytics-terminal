@@ -1,0 +1,93 @@
+mnemonic: DES
+full_name: Description
+
+what_it_does: |
+  Shows a summary page for a security: what the company does, where and in
+  which currency it trades, and headline facts such as market capitalisation
+  and industry classification. The exact contents vary by security type.
+
+  In this app DES shows a company table from Yahoo Finance, then a price
+  snapshot (last close, 52-week high and low, and how far the last close is
+  below the high) calculated in `analytics.py`, then the business summary.
+
+why_analysts_use_it: |
+  It is the first stop for confirming you have the right security and
+  understanding the basics before doing any analysis. Many mistakes, such as
+  picking the wrong listing, are caught here. The price snapshot tells you
+  quickly where the stock sits in its recent range.
+
+key_concepts:
+  - term: Listing and market
+    explanation: >
+      The same company can trade on several exchanges under different tickers
+      and currencies. That is why the command includes a market code such as
+      US or LN.
+  - term: Market capitalisation
+    explanation: >
+      Share price multiplied by the number of shares outstanding. It measures
+      the size of the company's equity as valued by the market. It does not
+      include debt, so it is not the full value of the business.
+  - term: 52-week high and low
+    explanation: >
+      The highest high and lowest low over roughly the last year (about 252
+      trading days). Where the last price sits between them shows whether the
+      stock is near a recent peak or trough. This app also shows the last close
+      as a percentage below the 52-week high.
+  - term: Price levels use split-adjusted prices
+    explanation: >
+      For a level such as a 52-week high you want prices that are as close as
+      possible to what actually traded, so this app uses split-adjusted prices
+      here. Dividend-adjusted prices would scale old prices down and understate
+      the level. They are the right choice for returns, not for levels.
+  - term: Quote currency and units
+    explanation: >
+      London stocks are quoted in pence (GBp), so a price of 12,000 means about
+      120 pounds. Yahoo does not state the currency of the market cap, so it
+      should be checked against another source.
+
+how_to_read_the_output:
+  - Confirm the exchange, ticker and quote currency match what you intended.
+  - Read the business description, then note the size (market cap) and the industry classification.
+  - Read the snapshot. A last close near the 52-week high and one near the low tell different stories, but neither predicts the next move.
+  - Remember that fields Yahoo does not have are shown as n/a rather than guessed.
+
+common_mistakes:
+  - Analysing the wrong listing, for example a US-listed receipt when you meant the London share.
+  - Assuming market cap is in your own currency, or in the quote currency, when the source may not say.
+  - Reading a London price in pence as pounds.
+  - Treating a stock near its 52-week high as expensive or one near its low as cheap. It is only a position in a range.
+
+interview_questions:
+  - question: Why does the market matter when you type a ticker?
+    model_answer: >
+      A ticker alone is ambiguous because a company can be listed in several
+      places with different tickers, currencies and trading hours. Specifying
+      the market picks exactly one listing. In my app it also decides which
+      suffix Yahoo Finance needs, such as .L for London.
+  - question: What is market capitalisation and what does it not tell you?
+    model_answer: >
+      Share price times shares outstanding. It tells you how the market values
+      the equity, not the company's debt, so it is not the full value of the
+      business. For that you would use enterprise value.
+  - question: Why did you use split-adjusted prices for the 52-week range but dividend-adjusted for returns?
+    model_answer: >
+      A 52-week high is a price level and should be close to what actually
+      traded. Dividend-adjusting scales old prices down, so it would understate
+      the level. Returns are different: to measure what an investor earned I
+      need dividends included, which the dividend-adjusted series does.
+  - question: What does a stock trading 5% below its 52-week high tell you?
+    model_answer: >
+      Only where it sits in its recent range. It does not say the stock is
+      cheap or expensive or where it goes next. It is context, and I would
+      combine it with valuation and the reason for the recent move.
+
+terminal_checklist:
+  - Run `AAPL US Equity DES <GO>` and note the exchange, currency and market cap.
+  - Run `AZN LN Equity DES <GO>` and compare it with the US-listed AZN line.
+  - Look for the 52-week high, 52-week low and last price on the terminal, and compare them with this app's price snapshot.
+  - Find which currency the terminal states for the market cap, and compare it with this app's figure.
+  - Find the industry classification and see what scheme it uses.
+
+related_functions:
+  - GP
+  - HP

@@ -1,0 +1,99 @@
+mnemonic: ECO
+full_name: Economic Calendar
+
+what_it_does: |
+  Shows recent and upcoming economic data releases for a country: what was released,
+  the actual figure against forecast, and the previous reading. On the real terminal it
+  covers dozens of indicators across many countries with a forward-looking calendar of
+  release dates.
+
+  This app only covers the **UK**, with three indicators it already had the fetch logic
+  for: CPI inflation (12-month rate), GDP growth (quarter-on-quarter) and the Bank of
+  England's Bank Rate, each shown as its latest reading, the change from the previous
+  reading, and a short trend chart. It has no forecasts and no forward calendar, only
+  what has already been released.
+
+why_analysts_use_it: |
+  Economic releases move markets, and the surprise (actual versus forecast) usually
+  matters more than the level. A calendar view keeps the handful of releases that matter
+  for a market in one place, so you are not hunting through several sources ahead of a
+  decision or a trade.
+
+key_concepts:
+  - term: Level change vs percentage change
+    explanation: >
+      CPI, GDP growth and Bank Rate are already rates (percentages), so the sensible way
+      to describe a change is the difference in percentage points (for example, CPI going
+      from 2.3% to 2.1% is a change of -0.2 percentage points), not a percentage change of
+      a percentage (which would say -8.7%, an easily misread double-percentage). This
+      app's change figures are always level (point) changes.
+  - term: Actual vs forecast
+    explanation: >
+      Markets price in the forecast (or "consensus") before a release, so the actual
+      figure surprising above or below that forecast, not the level itself, often drives
+      the immediate market reaction. This app does not have forecast data, so it can only
+      show the actual, not the surprise.
+  - term: Why Bank Rate is shown as changes, not daily levels
+    explanation: >
+      The Bank Rate only moves at the Monetary Policy Committee's roughly 8 decisions a
+      year and is flat every day in between, so a daily chart would mostly show flat
+      lines. This app reuses `bank_rate_changes`, written for the standalone macro
+      dashboard script, to collapse the daily series down to just the dates it actually
+      changed.
+  - term: Revisions
+    explanation: >
+      GDP and other statistics are often revised in later releases as more complete data
+      comes in. The "latest reading" a calendar shows is not guaranteed to be the final
+      number for that period.
+
+how_to_read_the_output:
+  - Read the change in percentage points, not as a percentage of the previous value.
+  - For GDP, remember quarter-on-quarter is a small number (often under 1%) even in a healthy economy; it is not the same as annual growth.
+  - For Bank Rate, an unchanged reading between two release dates does not mean nothing happened; check the Monetary Policy Committee's meeting calendar for the next scheduled decision.
+  - This app has no forecast, so a large or small change here says nothing about whether it surprised the market.
+
+common_mistakes:
+  - Reading a percentage-point change as a percentage change (a move from 2.3% to 2.1% is -0.2 points, not -8.7%).
+  - Comparing quarter-on-quarter GDP growth directly with a headline annual growth figure quoted elsewhere.
+  - Treating a GDP or CPI figure as final; check whether a later release has revised it.
+  - Assuming a flat Bank Rate over several weeks means the Bank of England has made no decision, rather than that no meeting has happened yet.
+
+interview_questions:
+  - question: Why report an inflation change in percentage points rather than a percentage?
+    model_answer: >
+      Because CPI is already a percentage (a rate), so a percentage change of a
+      percentage double-counts and is easy to misread. Saying CPI fell by 0.2 percentage
+      points, from 2.3% to 2.1%, is the standard and unambiguous way economists and
+      journalists report it, rather than "fell 8.7%", which sounds like a much bigger,
+      and different, move.
+  - question: Why does market reaction to a data release often depend on the forecast, not just the number itself?
+    model_answer: >
+      Markets are forward-looking and price in the expected outcome ahead of the release.
+      If the actual figure matches the forecast, there is little new information, so
+      little reaction. A surprise, actual above or below forecast, is the new information,
+      which is why "beat expectations" or "missed expectations" language matters more
+      than the raw level in many cases.
+  - question: Why is UK GDP growth shown quarter-on-quarter rather than a single number "the UK economy grew 2% this year"?
+    model_answer: >
+      Quarter-on-quarter growth shows the most recent trend, while an annual figure can
+      hide a recent slowdown or acceleration inside a longer average. Both are useful,
+      but they answer different questions, and it is a common mistake to compare a
+      quarterly figure with an annual one as if they were on the same scale.
+  - question: What is a data revision and why does it matter?
+    model_answer: >
+      Statistical agencies often publish an initial estimate before all the underlying
+      data is in, then revise it in later releases. It matters because a market reaction
+      to an initial GDP or employment figure can later look overdone or understated once
+      the number is revised, so analysts distinguish "first estimate" from later,
+      firmer figures.
+
+terminal_checklist:
+  - Run `ECO <GO>` and find how to filter it to the United Kingdom.
+  - Find the next scheduled UK CPI, GDP and Bank Rate release dates.
+  - Find the forecast (consensus) figure for the next CPI release, then compare the actual once it is out, to see whether it was a surprise.
+  - Look up the current UK CPI, GDP and Bank Rate figures on the terminal and compare them with this app's numbers and dates.
+  - Find whether the most recent UK GDP figure has been revised since its first release.
+
+related_functions:
+  - GC
+  - GP

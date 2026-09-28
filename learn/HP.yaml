@@ -1,0 +1,113 @@
+mnemonic: HP
+full_name: Historical Price Table
+
+what_it_does: |
+  Shows a security's historical prices as a table rather than a chart: one row
+  per period, with columns such as open, high, low, last price and volume. On
+  the real terminal you can set the date range and the periodicity (daily,
+  weekly, monthly and so on) and export the table to Excel.
+
+  In this app HP shows two years of open, high, low, close and volume, newest
+  first, with a Daily/Weekly/Monthly switch, a price-basis switch, a Change %
+  column and an annualised volatility figure. The Change % column and the
+  volatility are this app's own additions, calculated in `analytics.py`.
+
+why_analysts_use_it: |
+  When you need the exact number for a specific date, or you want to pull a
+  price series into your own model or spreadsheet, a table is more useful
+  than a chart. It is also the quickest way to check a specific day's high,
+  low and volume, and to see how the same history looks at different
+  frequencies.
+
+key_concepts:
+  - term: OHLCV
+    explanation: >
+      Open, High, Low, Close and Volume for each period. Volume is the number
+      of shares traded, not a value in currency.
+  - term: Periodicity and aggregation
+    explanation: >
+      A weekly or monthly row summarises many days: its open is the first
+      day's open, its high is the highest high, its low is the lowest low, its
+      close is the last day's close, and its volume is the total. Averaging any
+      of these would be wrong. This app dates each row by its last trading day.
+  - term: Periodic return (Change %)
+    explanation: >
+      The close divided by the previous row's close, minus one. In a monthly
+      table it is a monthly return, in a daily table a daily return. The first
+      row has no previous row, so it has no change.
+  - term: Annualising volatility by periodicity
+    explanation: >
+      Volatility measured from weekly returns has to be scaled up by the
+      square root of 52 to be annual, from monthly returns by the square root
+      of 12, and from daily returns by the square root of 252. Using the wrong
+      factor gives a number that is wrong by a large multiple. Even with the
+      right factor, the three figures can differ noticeably (for two years of
+      Apple data, about 29% from daily returns but about 22% from monthly
+      ones). A monthly figure rests on only about 24 observations, so it is
+      very noisy, and daily returns are not perfectly independent, which the
+      square-root scaling assumes.
+  - term: Split-adjusted vs dividend-adjusted prices
+    explanation: >
+      Split-adjusted prices are closest to what actually traded, so use them to
+      look up a level on a date. Dividend-adjusted prices scale history down
+      for dividends paid so that returns include them, so use them for returns.
+      The two differ more the further back you go.
+
+how_to_read_the_output:
+  - Check the date range, periodicity, price basis and currency first.
+  - Read the Close column for the trend and the High and Low columns for the range within each period.
+  - Read Change % for the size of each period's move, and look for the largest ones.
+  - Compare the volatility at daily, weekly and monthly frequency. They will not match. Monthly rests on few observations, so trust the daily figure more for a two-year window.
+  - Unusually high volume on a day usually means news, an index change or a large trade. Check what happened.
+
+common_mistakes:
+  - Comparing a daily table with a monthly one as if the rows were the same kind of thing.
+  - Forgetting whether the prices are adjusted, and quoting an adjusted price as a traded price.
+  - Annualising weekly or monthly returns with the daily factor of 252.
+  - Averaging the opens or highs of a week instead of taking the first open and the highest high.
+  - Reading London prices in pence as pounds.
+
+interview_questions:
+  - question: Why might you use a price table instead of a chart?
+    model_answer: >
+      When I need exact values for particular dates or want to export the
+      series into a model. A chart is better for seeing the shape, and a
+      table is better for precision and reuse.
+  - question: How do you turn daily prices into a weekly row?
+    model_answer: >
+      Open is the first day's open, high is the highest high of the week, low
+      is the lowest low, close is the last day's close, and volume is the sum
+      of the daily volumes. I label the row with the last trading day so an
+      unfinished week is not dated in the future.
+  - question: How do you annualise volatility from monthly returns?
+    model_answer: >
+      Take the sample standard deviation of the monthly returns and multiply
+      by the square root of 12, because variance grows in proportion to time
+      when returns are independent. Daily data uses the square root of 252 and
+      weekly data the square root of 52. The results can differ noticeably
+      between frequencies: a monthly estimate over two years uses only about
+      24 returns so it is very noisy, and the scaling assumes returns are
+      independent, which is only approximately true.
+  - question: What does unusually high volume on one day tell you?
+    model_answer: >
+      That something drew attention to the stock: earnings, news, an index
+      rebalance or a large block trade. It does not say which direction, so I
+      would check the news for that date.
+  - question: Which price basis would you use to look up what a stock closed at on a given day?
+    model_answer: >
+      Split-adjusted only, because it is closest to the traded price.
+      Dividend-adjusted prices are scaled down for dividends paid since, so an
+      old adjusted price will not match what the stock actually closed at.
+
+terminal_checklist:
+  - Run `AAPL US Equity HP <GO>` and identify the range, periodicity and columns shown.
+  - Change the periodicity from daily to monthly and see how the rows change.
+  - Pick one date and compare the open, high, low, close and volume with this app's Split-adjusted only table.
+  - Pick a monthly row and check that its high and low are the extremes of the daily rows in that month.
+  - Find how to export the table to Excel, then recompute a return in the spreadsheet and compare it with this app's Change % column.
+  - Pick the day with the highest volume and look up what happened.
+  - Find the setting that changes how the prices are adjusted and see which columns change.
+
+related_functions:
+  - GP
+  - DES

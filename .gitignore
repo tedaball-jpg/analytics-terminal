@@ -1,0 +1,15 @@
+# Private Bloomberg comparison data - real values must never be committed.
+# validation/comparisons.example.csv (fabricated, illustrative) is intentionally NOT
+# ignored, so the format stays documented in the repo.
+validation/comparisons.csv
+
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Per-user Claude Code settings (permission allowlist); .claude/launch.json is shared
+# dev-server config and is intentionally not ignored.
+.claude/settings.local.json
+
+.DS_Store
+Thumbs.db

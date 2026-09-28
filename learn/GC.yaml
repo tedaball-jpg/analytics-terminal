@@ -1,0 +1,123 @@
+mnemonic: GC
+full_name: Government Curve
+
+what_it_does: |
+  Plots a government's yield curve: the interest rate (yield) the market demands to
+  lend to that government, at each maturity, at a single point in time. On the real
+  terminal you can pick the country, compare it against a past date or another
+  country's curve, and switch between yield and spread views.
+
+  This app only shows the **US Treasury curve**, because Yahoo Finance has no free UK
+  gilt yield data. It plots four points (3-month, 5-year, 10-year, 30-year, from Yahoo's
+  ^IRX/^FVX/^TNX/^TYX indices, already quoted in percent) and the 10-year-minus-3-month
+  spread, the input to the New York Fed's own recession probability model.
+
+why_analysts_use_it: |
+  The curve's shape is read as a signal about what the market expects for growth and
+  inflation, without needing a forecast model: it is investors putting money behind
+  their expectations. A steep curve suggests confidence in future growth; a flat or
+  inverted one suggests the market expects the central bank to cut rates because
+  growth is slowing. It is one of the most closely watched charts in markets.
+
+key_concepts:
+  - term: What the curve shows
+    explanation: >
+      Each point is the yield on a bond of the same issuer (here, the US government) at
+      a different maturity, all observed on the same day. It is a single snapshot in
+      time, not a history: a chart of yields over time (like GP for a bond) is a
+      different, related picture.
+  - term: Normal (upward-sloping) curve
+    explanation: >
+      Long-maturity yields are higher than short-maturity ones. This is the usual shape:
+      lending for longer means more exposure to inflation and interest-rate risk over
+      that time, so investors demand a higher yield (a term premium) to compensate. It
+      is generally read as consistent with normal or expanding growth.
+  - term: Inverted curve
+    explanation: >
+      Short-maturity yields are higher than long-maturity ones, the spread (long minus
+      short) is negative. This usually happens when a central bank has pushed short-term
+      rates up to fight inflation, while the market expects growth (and inflation) to
+      slow enough that rates will later be cut, so it accepts a lower yield for locking
+      money up long term now. An inverted 10-year-minus-3-month spread has preceded
+      most US recessions historically, which is why it is watched so closely, though the
+      lead time before a recession has varied from under a year to over two years, and
+      not every inversion has been followed by one.
+  - term: Flat curve
+    explanation: >
+      Short and long yields are close together. It often appears as a transition between
+      a normal and an inverted curve, or the reverse, and signals uncertainty about the
+      path ahead rather than a clear expectation either way.
+  - term: Term premium
+    explanation: >
+      The extra yield investors demand for lending longer rather than rolling over
+      short-term debt repeatedly, to compensate for the risk that inflation or interest
+      rates move against them before the bond matures. It is the standard explanation for
+      why a normal curve slopes upward at all.
+  - term: Why the curve is not evenly spaced by time
+    explanation: >
+      The gap from 3 months to 5 years is much bigger than 5 years to 10 years, so this
+      app's chart places each point at its actual years-to-maturity rather than spacing
+      the four points evenly, otherwise the shape would be distorted and the curve's
+      steepness at the short end (where a lot happens) would be hidden.
+
+how_to_read_the_output:
+  - Look at the overall slope first. Rising left to right is normal, falling is inverted, roughly flat is flat.
+  - Check the 10-year-minus-3-month spread number and whether it is flagged Inverted. A negative spread is the inversion signal, not the absolute level of yields.
+  - Remember this is one day's snapshot. Look at GP-style history of the spread itself (not built here) to see whether it has been inverted for a while or just crossed zero.
+  - Do not treat an inversion as a precise recession-timing tool. It has been a reliable warning, not a stopwatch.
+  - This app only has four points and only the US curve. A missing point (shown as a gap) means Yahoo did not return data for that maturity that day.
+
+common_mistakes:
+  - Reading the curve's overall level (are yields high or low) as the same thing as its shape (is it rising or falling). Both are meaningful, but they answer different questions.
+  - Treating an inversion as an exact recession-timing signal rather than a historically reliable but imprecise warning.
+  - Comparing two curves from different countries as if a spread between them meant the same thing as a spread within one curve (a US-UK yield gap reflects different things, like currency and monetary policy differences, not a single country's growth outlook).
+  - Assuming the curve is smooth between the plotted points. The real curve can bend between maturities that are not shown here.
+  - Not checking the date. A stale or delayed price can make the curve look wrong on a fast-moving day.
+
+interview_questions:
+  - question: What does an inverted yield curve typically signal, and why?
+    model_answer: >
+      That the market expects the central bank to cut short-term rates in future,
+      usually because it expects growth or inflation to slow. Investors accept a lower
+      yield for lending long term now because they expect future rates, and reinvestment
+      opportunities, to be lower. A negative 10-year-minus-3-month spread has preceded
+      most US recessions historically, though the lead time varies and it is not a
+      guarantee.
+  - question: Why does a normal curve slope upward at all?
+    model_answer: >
+      Lending for longer exposes an investor to more inflation and interest-rate risk
+      over that time, so they demand a term premium, extra yield, to be compensated.
+      That premium usually grows with maturity, which is why yields normally rise from
+      short to long maturities.
+  - question: Which spread does your app use to flag an inversion, and why might that differ from what you hear quoted in the news?
+    model_answer: >
+      The 10-year minus 3-month spread, because it is the input to the New York Fed's
+      recession probability model and Yahoo provides both points for free. The news more
+      often quotes the 10-year minus 2-year spread, which is the Fed's other commonly
+      cited measure. The two usually move together but can differ, and Yahoo has no free
+      2-year Treasury series, so I could not show that one here.
+  - question: Is a flat curve the same signal as an inverted one?
+    model_answer: >
+      No. A flat curve suggests the market is uncertain about the direction of growth
+      and rates, roughly indifferent between lending short and long. An inverted curve
+      is a clearer signal that the market expects rates, and by extension growth, to
+      fall. A flat curve is often a transition on the way to, or back from, an inversion.
+  - question: Why does your chart space the maturities by years rather than evenly?
+    model_answer: >
+      Spacing them evenly would distort the shape. The gap from 3 months to 5 years is
+      far larger in time than 5 to 10 years, so evenly spacing all four points would
+      compress the short end, where the curve is often steepest and most informative,
+      and exaggerate the long end.
+
+terminal_checklist:
+  - Run `GC <GO>` and identify which country's curve is shown by default and how to change it.
+  - Set the country to United States and compare the shape and the exact yields with this app's chart on the same day.
+  - Find the 2-year and 10-year points on the terminal (not available here) and calculate the 10-year-minus-2-year spread. Compare it with this app's 10-year-minus-3-month spread.
+  - Find a setting to overlay a past date's curve on today's, and note how the shape has changed.
+  - Switch to a different country's curve (for example the UK) and compare its shape with the US curve on the same day.
+  - Look up when the US curve last inverted and check how long it stayed inverted before any subsequent recession.
+
+related_functions:
+  - GP
+  - ECO
+  - HP
