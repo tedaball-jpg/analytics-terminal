@@ -7,9 +7,10 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
-# Per-user Claude Code settings (permission allowlist); .claude/launch.json is shared
-# dev-server config and is intentionally not ignored.
+# Per-user Claude Code settings (permission allowlist) and runtime state;
+# .claude/launch.json is shared dev-server config and is intentionally not ignored.
 .claude/settings.local.json
+.claude/*.lock
 
 .DS_Store
 Thumbs.db
