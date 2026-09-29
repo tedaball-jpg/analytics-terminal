@@ -1,0 +1,8 @@
+streamlit==1.64.0
+pandas==3.0.3
+numpy==2.5.1
+yfinance==1.5.1
+matplotlib==3.11.0
+arch==8.0.0
+requests==2.34.2
+PyYAML==6.0.3

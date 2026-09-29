@@ -1,3 +1,10 @@
+import matplotlib
+
+# Must run before any "import matplotlib.pyplot" anywhere in the app (portfolio.py,
+# functions.py): headless servers like Streamlit Community Cloud have no display, and
+# matplotlib's default backend selection can otherwise misbehave or warn.
+matplotlib.use("Agg")
+
 import streamlit as st
 
 from command_parser import ParseError, parse_command

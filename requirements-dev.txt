@@ -1,0 +1,3 @@
+# Only needed for running the test suite locally or in CI, not for the deployed app.
+-r requirements.txt
+pytest==9.1.1
