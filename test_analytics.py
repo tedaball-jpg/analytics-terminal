@@ -7,6 +7,7 @@ from analytics import (
     TRADING_DAYS_PER_YEAR,
     annualised_volatility,
     build_cross_matrix,
+    buy_and_hold_returns,
     correlation_matrix,
     cumulative_return,
     curve_spread,
@@ -16,10 +17,13 @@ from analytics import (
     max_drawdown,
     normalize_weights,
     portfolio_returns,
+    rebase,
+    sharpe_ratio,
     simple_returns,
     total_return,
     trailing_range,
     trailing_return,
+    year_over_year_change,
 )
 
 DATES = pd.date_range("2026-01-05", periods=4, freq="B")
@@ -320,3 +324,139 @@ def test_correlation_matrix_diagonal_is_one():
     corr = correlation_matrix(returns)
     assert corr.loc["A", "A"] == pytest.approx(1.0)
     assert corr.loc["B", "B"] == pytest.approx(1.0)
+
+
+# --- rebase: used by GP's rebased two-security comparison --------------------------------------
+
+
+def test_rebase_starts_at_100():
+    prices = pd.Series([50.0, 55.0, 45.0])
+    assert rebase(prices).iloc[0] == pytest.approx(100.0)
+
+
+def test_rebase_by_hand():
+    # A 10% rise from the start should read as 110, whatever the starting price was.
+    prices = pd.Series([200.0, 220.0, 180.0])
+    result = rebase(prices)
+    assert result.tolist() == pytest.approx([100.0, 110.0, 90.0])
+
+
+def test_rebase_makes_two_different_price_levels_comparable():
+    cheap = pd.Series([10.0, 11.0, 9.0])
+    expensive = pd.Series([1000.0, 1100.0, 900.0])
+    # Same percentage moves, wildly different price levels -> identical rebased series.
+    assert rebase(cheap).tolist() == pytest.approx(rebase(expensive).tolist())
+
+
+# --- sharpe_ratio: used by PORT -----------------------------------------------------------------
+
+
+def test_sharpe_ratio_by_hand():
+    # Constant +0.1% daily return has zero volatility, so a naive Sharpe would divide by
+    # zero; use a return series with real dispersion instead, matching GP's daily std = 2a/sqrt(3).
+    returns = pd.Series([0.10, -0.10, 0.10])
+    annualised_return = returns.mean() * 252  # (0.10 - 0.10 + 0.10) / 3 * 252
+    vol = annualised_volatility(returns)
+    risk_free_rate = 0.04
+    assert sharpe_ratio(returns, risk_free_rate) == pytest.approx((annualised_return - risk_free_rate) / vol)
+
+
+def test_sharpe_ratio_is_higher_with_a_lower_risk_free_rate():
+    returns = pd.Series([0.01, -0.02, 0.03, 0.01, -0.01])
+    assert sharpe_ratio(returns, 0.01) > sharpe_ratio(returns, 0.05)
+
+
+def test_sharpe_ratio_respects_periods_per_year():
+    returns = pd.Series([0.01, -0.02, 0.03, 0.01, -0.01])
+    daily_convention = sharpe_ratio(returns, 0.02, periods_per_year=252)
+    monthly_convention = sharpe_ratio(returns, 0.02, periods_per_year=12)
+    assert daily_convention != pytest.approx(monthly_convention)
+
+
+# --- buy_and_hold_returns: used by PORT's buy-and-hold mode -------------------------------------
+
+# Day 1: A +20%, B +0%. Day 2: A +10%, B +0%. Worked by hand in the module's docstring
+# derivation: day 1 return matches fixed-weight exactly (no drift has happened yet), day 2
+# does not, because A is now a bigger share of the portfolio after day 1's outperformance.
+DRIFT_RETURNS = pd.DataFrame({"A": [0.20, 0.10], "B": [0.0, 0.0]})
+DRIFT_WEIGHTS = [0.5, 0.5]
+
+
+def test_buy_and_hold_first_day_matches_fixed_weight():
+    # Before any drift, day 1 is identical under both methods.
+    bh = buy_and_hold_returns(DRIFT_RETURNS, DRIFT_WEIGHTS)
+    fixed = portfolio_returns(DRIFT_RETURNS, DRIFT_WEIGHTS)
+    assert bh.iloc[0] == pytest.approx(fixed.iloc[0])
+    assert bh.iloc[0] == pytest.approx(0.10)  # 0.5 * 0.20 + 0.5 * 0.0
+
+
+def test_buy_and_hold_second_day_diverges_from_fixed_weight_by_hand():
+    # After day 1, A's weight has drifted to 1.2*0.5 / 1.1 = 0.5454..., B's to 0.4545...
+    # Day 2 return = 0.5454... * 0.10 + 0.4545... * 0.0 = 0.054545...
+    bh = buy_and_hold_returns(DRIFT_RETURNS, DRIFT_WEIGHTS)
+    assert bh.iloc[1] == pytest.approx(0.0545454545, rel=1e-6)
+
+    fixed = portfolio_returns(DRIFT_RETURNS, DRIFT_WEIGHTS)
+    assert fixed.iloc[1] == pytest.approx(0.05)  # unaffected by drift, always uses 0.5/0.5
+    assert bh.iloc[1] != pytest.approx(fixed.iloc[1])
+
+
+def test_buy_and_hold_equals_fixed_weight_with_only_one_period():
+    # With a single day of returns there has been no time to drift.
+    returns = pd.DataFrame({"A": [0.05], "B": [-0.03]})
+    weights = [0.7, 0.3]
+    assert buy_and_hold_returns(returns, weights).tolist() == pytest.approx(
+        portfolio_returns(returns, weights).tolist()
+    )
+
+
+def test_buy_and_hold_cumulative_value_matches_each_holdings_own_compounding():
+    # The portfolio's total cumulative return must equal the weighted sum of each
+    # holding's own (independently compounded) cumulative return - the defining property
+    # of buy-and-hold, checked independently of the day-by-day return formula above.
+    returns = pd.DataFrame({"A": [0.10, -0.05, 0.20], "B": [-0.02, 0.03, 0.01]})
+    weights = [0.6, 0.4]
+    bh = buy_and_hold_returns(returns, weights)
+    portfolio_cumulative = (1 + bh).prod() - 1
+
+    holding_a_cumulative = (1 + returns["A"]).prod() - 1
+    holding_b_cumulative = (1 + returns["B"]).prod() - 1
+    expected = 0.6 * (1 + holding_a_cumulative) + 0.4 * (1 + holding_b_cumulative) - 1
+
+    assert portfolio_cumulative == pytest.approx(expected)
+
+
+# --- year_over_year_change: used by ECO's US CPI (a raw index level, not a rate) ----------------
+
+
+def test_year_over_year_change_by_hand():
+    # 13 monthly index points: 100, 100.1, ..., up to a 13th point at 105. The 12-months-
+    # back comparison for the 13th point is 105 / 100 - 1 = 5%.
+    dates = pd.date_range("2025-01-01", periods=13, freq="MS")
+    values = [100.0] * 12 + [105.0]
+    readings = list(zip(dates, values))
+    result = year_over_year_change(readings)
+    assert len(result) == 1
+    assert result[0][0] == dates[12]
+    assert result[0][1] == pytest.approx(5.0)
+
+
+def test_year_over_year_change_needs_at_least_13_readings():
+    dates = pd.date_range("2025-01-01", periods=12, freq="MS")
+    readings = list(zip(dates, [100.0] * 12))
+    assert year_over_year_change(readings) == []
+
+
+def test_year_over_year_change_returns_one_point_per_reading_past_the_first_12():
+    dates = pd.date_range("2025-01-01", periods=15, freq="MS")
+    readings = list(zip(dates, range(100, 115)))
+    result = year_over_year_change(readings)
+    assert len(result) == 3  # 15 readings - 12 = 3 with a year-ago comparison
+    assert [d for d, _ in result] == list(dates[12:])
+
+
+def test_year_over_year_change_of_a_falling_index_is_negative():
+    dates = pd.date_range("2025-01-01", periods=13, freq="MS")
+    values = [100.0] * 12 + [95.0]
+    result = year_over_year_change(list(zip(dates, values)))
+    assert result[0][1] == pytest.approx(-5.0)

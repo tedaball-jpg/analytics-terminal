@@ -4,6 +4,8 @@ from datetime import datetime
 import requests
 import yfinance as yf
 
+from analytics import year_over_year_change
+
 CPI_URL = "https://www.ons.gov.uk/economy/inflationandpriceindices/timeseries/d7g7/mm23/data"
 GDP_URL = "https://www.ons.gov.uk/economy/grossdomesticproductgdp/timeseries/ihyq/qna/data"
 BANK_RATE_URL = (
@@ -13,13 +15,29 @@ BANK_RATE_URL = (
 )
 BROWSER_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
+# FRED (Federal Reserve Economic Data) publishes a plain CSV per series that needs no
+# API key, unlike its JSON API. Used for data ONS/BoE don't have (US series) and for
+# points Yahoo doesn't offer for free (the US 2-year Treasury).
+FRED_CSV_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
+
+US_CPI_SERIES = "CPIAUCSL"  # CPI index level, monthly - FRED has no ready-made US 12-month rate
+US_GDP_SERIES = "A191RL1Q225SBEA"  # real GDP growth, already annualised quarter-on-quarter
+US_FED_FUNDS_SERIES = "FEDFUNDS"  # effective federal funds rate, monthly
+US_2Y_TREASURY_SERIES = "DGS2"
+
 # Yahoo quotes these constant-maturity Treasury indices directly in percent
-# (e.g. 4.25 means 4.25%), so no unit conversion is needed. Yahoo has no free 2-year
-# series, so the curve has a gap between 3 months and 5 years.
-YIELD_CURVE_TICKERS = {"3M": "^IRX", "5Y": "^FVX", "10Y": "^TNX", "30Y": "^TYX"}
+# (e.g. 4.25 means 4.25%), so no unit conversion is needed. The 2-year point comes from
+# FRED instead, since Yahoo has no free US 2-year series.
+US_YIELD_CURVE_TICKERS = {"3M": "^IRX", "5Y": "^FVX", "10Y": "^TNX", "30Y": "^TYX"}
+
+# FRED mirrors OECD data for the UK, but only two points, both monthly (not daily like
+# the US series). The "3M" point is an interbank rate (a proxy for a T-bill yield, not
+# the same instrument), and there is no free UK 5-year or 30-year point.
+UK_YIELD_CURVE_SERIES = {"3M": "IR3TIB01GBM156N", "10Y": "IRLTLT01GBM156N"}
+
 # Years to maturity for each point, used to space the curve chart's x-axis realistically
 # (the gap from 3M to 5Y is genuinely much smaller than 5Y to 30Y).
-MATURITY_YEARS = {"3M": 0.25, "5Y": 5, "10Y": 10, "30Y": 30}
+MATURITY_YEARS = {"3M": 0.25, "2Y": 2, "5Y": 5, "10Y": 10, "30Y": 30}
 
 # FXC's currency basket. USD is the anchor: Yahoo has a "USD<code>=X" ticker (units of
 # <code> per 1 USD) for every one of these, which is not true of every currency pair.
@@ -39,6 +57,31 @@ def fetch_json_series(url, key, source_name):
     except requests.exceptions.RequestException as e:
         raise DataUnavailable(f"could not fetch {source_name} data ({e})") from e
     except (KeyError, ValueError) as e:
+        raise DataUnavailable(f"unexpected {source_name} response format ({e})") from e
+
+
+def fetch_fred_series(series_id, source_name):
+    """A FRED series as [(date, value), ...], oldest first. Missing observations are
+    skipped: FRED marks these as an empty string in most series, but '.' shows up too
+    (its documented convention), so both are treated as missing."""
+    try:
+        response = requests.get(FRED_CSV_URL.format(series_id=series_id), timeout=10)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        raise DataUnavailable(f"could not fetch {source_name} data ({e})") from e
+
+    try:
+        lines = response.text.strip().splitlines()
+        reader = csv.reader(lines[1:])  # skip the "observation_date,<series>" header
+        readings = [
+            (datetime.strptime(date_str, "%Y-%m-%d").date(), float(value_str))
+            for date_str, value_str in reader
+            if value_str not in ("", ".")
+        ]
+        if not readings:
+            raise DataUnavailable(f"no {source_name} data returned")
+        return readings
+    except (ValueError, csv.Error) as e:
         raise DataUnavailable(f"unexpected {source_name} response format ({e})") from e
 
 
@@ -95,13 +138,60 @@ def bank_rate_changes(series):
     return changes
 
 
-def fetch_yield_curve():
-    """{'3M': yield_pct, '5Y': ..., '10Y': ..., '30Y': ...}; missing points are omitted."""
+def fetch_us_cpi_readings():
+    """US CPI 12-month inflation rate, computed from FRED's CPI index level (FRED has no
+    ready-made US 12-month rate series, unlike ONS's UK series). Rounded to 1 decimal
+    place to match the precision ONS already publishes its UK rate at - the raw
+    computation has far more (meaningless) precision than either source's real accuracy."""
+    index_levels = fetch_fred_series(US_CPI_SERIES, "US CPI")
+    return [(date, round(rate, 1)) for date, rate in year_over_year_change(index_levels)]
+
+
+def fetch_us_gdp_readings():
+    """US real GDP growth, annualised quarter-on-quarter (FRED's convention - not
+    directly comparable to the UK's non-annualised quarterly rate from ONS)."""
+    return fetch_fred_series(US_GDP_SERIES, "US GDP growth")
+
+
+def fetch_us_fed_funds_readings():
+    """US federal funds rate: the US analogue of the UK Bank Rate."""
+    return fetch_fred_series(US_FED_FUNDS_SERIES, "US Fed Funds Rate")
+
+
+def fetch_yield_curve(country):
+    """{'3M': yield_pct, ...} for the given country ('US' or 'UK'); missing points are
+    omitted. See US_YIELD_CURVE_TICKERS / UK_YIELD_CURVE_SERIES for what each covers."""
+    if country == "US":
+        return _fetch_us_yield_curve()
+    if country == "UK":
+        return _fetch_uk_yield_curve()
+    raise ValueError(f"no yield curve data for {country!r}")
+
+
+def _fetch_us_yield_curve():
     curve = {}
-    for label, ticker in YIELD_CURVE_TICKERS.items():
+    for label, ticker in US_YIELD_CURVE_TICKERS.items():
         history = yf.Ticker(ticker).history(period="5d")
         if not history.empty:
             curve[label] = history["Close"].iloc[-1]
+
+    try:
+        two_year = fetch_fred_series(US_2Y_TREASURY_SERIES, "US 2-year Treasury")
+        curve["2Y"] = two_year[-1][1]
+    except DataUnavailable:
+        pass  # the rest of the curve still renders without this one point
+
+    return curve
+
+
+def _fetch_uk_yield_curve():
+    curve = {}
+    for label, series_id in UK_YIELD_CURVE_SERIES.items():
+        try:
+            readings = fetch_fred_series(series_id, f"UK {label} rate")
+            curve[label] = readings[-1][1]
+        except DataUnavailable:
+            continue
     return curve
 
 

@@ -123,6 +123,43 @@ def correlation_matrix(returns):
     return returns.corr()
 
 
+def rebase(prices):
+    """Rescale a price series to start at 100: rebased_t = price_t / price_0 * 100. Lets
+    two securities on different price levels (or in different currencies) be compared
+    on one chart, since both start from the same point."""
+    return prices / prices.iloc[0] * 100
+
+
+def sharpe_ratio(returns, risk_free_rate, periods_per_year=TRADING_DAYS_PER_YEAR):
+    """Excess return per unit of risk: (annualised return - risk-free rate) / annualised
+    volatility. risk_free_rate must already be annualised, in the same decimal units as
+    returns (0.04 for 4%), not a daily rate."""
+    annualised_return = returns.mean() * periods_per_year
+    return (annualised_return - risk_free_rate) / annualised_volatility(returns, periods_per_year)
+
+
+def buy_and_hold_returns(returns, weights):
+    """The daily return of a buy-and-hold portfolio: weights are set once, at the start,
+    then left to drift as each holding's own value compounds (yesterday's winner is a
+    bigger slice today). Contrast with portfolio_returns, which reapplies the same
+    weights every day (rebalancing). `weights` must already be normalised (sum to 1)."""
+    value_path = ((1 + returns).cumprod() * weights).sum(axis=1)
+    initial_value = sum(weights)  # the portfolio's value the moment before the first return
+    previous_value = [initial_value] + value_path.iloc[:-1].tolist()
+    return pd.Series(value_path.values / previous_value - 1, index=value_path.index)
+
+
+def year_over_year_change(readings):
+    """Convert a monthly index-level series (e.g. a CPI index, not already a rate) into
+    a 12-month percentage change: rate_i = readings[i] / readings[i-12] - 1, as a
+    percentage (matching how a 12-month inflation rate is normally quoted). Needs at
+    least 13 monthly readings; the first 12 have no year-ago comparison and are dropped."""
+    return [
+        (readings[i][0], (readings[i][1] / readings[i - 12][1] - 1) * 100)
+        for i in range(12, len(readings))
+    ]
+
+
 def build_cross_matrix(units_per_usd):
     """A full currency cross-rate matrix by triangulating through USD.
 

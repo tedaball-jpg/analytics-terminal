@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import yfinance as yf
 
-from analytics import annualised_volatility, cumulative_return, simple_returns
+from analytics import annualised_volatility, cumulative_return, sharpe_ratio, simple_returns
 from macro_data import bank_rate_changes, fetch_bank_rate_readings
 from volatility import fit_garch
 
@@ -54,11 +54,6 @@ def plot_portfolio_vs_ftse(portfolio_cum_return, ftse_cum_return):
     ax.legend()
     fig.tight_layout()
     return fig
-
-
-def sharpe_ratio(returns, risk_free_rate):
-    annualised_return = returns.mean() * 252
-    return (annualised_return - risk_free_rate) / annualised_volatility(returns)
 
 
 def plot_garch_vs_flat(garch_vol, flat_vol):

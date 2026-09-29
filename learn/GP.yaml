@@ -8,10 +8,12 @@ what_it_does: |
   between linear and log scales, overlay studies such as moving averages, RSI
   and volume, and compare the security against others on the same chart.
 
-  In this app GP draws a line of daily closing prices for the last two years,
-  with a price-basis switch and three statistics underneath: return,
-  annualised volatility and maximum drawdown. Those statistics are this app's
-  own addition, calculated in `analytics.py`.
+  In this app GP draws a line of daily closing prices over a date range you pick
+  (defaulting to the last two years), with a price-basis switch and three
+  statistics underneath: return, annualised volatility and maximum drawdown.
+  Those statistics are this app's own addition, calculated in `analytics.py`.
+  There is also an optional rebased comparison: type a second `TICKER MARKET`
+  to plot it alongside the first, both rescaled to start at 100.
 
 why_analysts_use_it: |
   It is usually the first thing you look at for any security. In a few seconds
@@ -71,6 +73,14 @@ key_concepts:
       showing about 12,000 means about 120 pounds. Returns and drawdowns are
       unaffected, since they are ratios, but any price level is off by 100 if
       you read pence as pounds.
+  - term: Rebasing
+    explanation: >
+      To compare two securities fairly, you cannot just plot both prices as-is:
+      a $500 stock is not "bigger" than a $50 one, and comparing two currencies
+      (pence versus dollars) directly is meaningless. Rebasing rescales both
+      series to start at 100 on the same date (rebased_t = price_t / price_0 *
+      100), so the chart directly shows relative performance from that date,
+      whatever the starting price level or currency.
 
 how_to_read_the_output:
   - Check the axes first. What currency or unit is it, and what date range is shown?
@@ -79,7 +89,9 @@ how_to_read_the_output:
   - Read the three statistics together. Return alone hides the path. Two stocks can end with the same return, one with a smooth climb and one with a 40% drawdown along the way.
   - Switch the price basis. For a dividend payer, total return should be higher than price return. If it is not, something is wrong.
   - Read the drawdown dates. They tell you when the worst peak-to-trough fall started and ended, which you can then look up in the news.
-  - The chart is a line of daily closes over roughly two years. It has no volume, candlesticks or studies.
+  - Check the From/To dates you picked; the statistics below the chart are always for that exact window, not a fixed period.
+  - If you add a comparison ticker, both lines are rebased to 100 at the start of the window, so read the chart as "how much each grew from here", not as a price level.
+  - The chart is a line of daily closes. It has no volume, candlesticks or studies.
 
 common_mistakes:
   - Reading pence as pounds for London-listed stocks.
@@ -128,8 +140,10 @@ interview_questions:
   - question: How would you compare the performance of two stocks on one chart?
     model_answer: >
       Rebase both to 100 (or 0%) at the same start date and plot the
-      percentage change, in the same currency, using total return prices so a
-      high dividend payer is not understated. Raw prices are not comparable.
+      percentage change, in the same currency, using total return (dividend-
+      adjusted) prices so a high dividend payer is not understated. Raw prices
+      are not comparable. My app's "Compare against" field does exactly this:
+      both series are divided by their own first value and multiplied by 100.
   - question: Why might your app's numbers differ from Bloomberg's for the same stock?
     model_answer: >
       The data source is different (Yahoo Finance versus Bloomberg), the
@@ -147,7 +161,8 @@ terminal_checklist:
   - Compare AAPL against an index such as SPX Index using the percentage change or rebased view.
   - Find the setting that changes how splits and dividends are adjusted, and note how the chart changes.
   - Look at a stock with a known split (AAPL 4-for-1 in August 2020, NVDA 10-for-1 in June 2024) with and without split adjustment.
-  - Set the same two-year window here and on the terminal, and compare the price return over the range with this app's price return.
+  - Set a matching custom date range here and on the terminal, and compare the price return over that exact window with this app's price return.
+  - Use the terminal's own two-security comparison view and compare it with this app's "Compare against" field, on the same two tickers and window.
   - Look for a historical volatility function (usually HVT or HVG; confirm the mnemonic with the function search) and compare its figure with this app's annualised volatility. Expect small differences from the window and convention.
   - Run `AZN LN Equity GP <GO>` and check which currency the price is quoted in.
   - Put the same ticker into this app and list every difference you can see.

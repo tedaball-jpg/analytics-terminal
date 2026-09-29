@@ -7,10 +7,11 @@ what_it_does: |
   the real terminal you can set the date range and the periodicity (daily,
   weekly, monthly and so on) and export the table to Excel.
 
-  In this app HP shows two years of open, high, low, close and volume, newest
-  first, with a Daily/Weekly/Monthly switch, a price-basis switch, a Change %
-  column and an annualised volatility figure. The Change % column and the
-  volatility are this app's own additions, calculated in `analytics.py`.
+  In this app HP shows open, high, low, close and volume over a date range you
+  pick (defaulting to the last two years), newest first, with a Daily/Weekly/
+  Monthly switch, a price-basis switch, a Change % column and an annualised
+  volatility figure. The Change % column and the volatility are this app's own
+  additions, calculated in `analytics.py`.
 
 why_analysts_use_it: |
   When you need the exact number for a specific date, or you want to pull a
@@ -57,8 +58,9 @@ how_to_read_the_output:
   - Check the date range, periodicity, price basis and currency first.
   - Read the Close column for the trend and the High and Low columns for the range within each period.
   - Read Change % for the size of each period's move, and look for the largest ones.
-  - Compare the volatility at daily, weekly and monthly frequency. They will not match. Monthly rests on few observations, so trust the daily figure more for a two-year window.
+  - Compare the volatility at daily, weekly and monthly frequency. They will not match. Monthly rests on few observations, so trust the daily figure more for a short window.
   - Unusually high volume on a day usually means news, an index change or a large trade. Check what happened.
+  - A shorter From/To window means fewer rows and a noisier monthly volatility figure in particular; the daily figure is more stable across window lengths.
 
 common_mistakes:
   - Comparing a daily table with a monthly one as if the rows were the same kind of thing.
@@ -101,6 +103,7 @@ interview_questions:
 
 terminal_checklist:
   - Run `AAPL US Equity HP <GO>` and identify the range, periodicity and columns shown.
+  - Set a matching custom date range here and on the terminal, and compare a specific date's row.
   - Change the periodicity from daily to monthly and see how the rows change.
   - Pick one date and compare the open, high, low, close and volume with this app's Split-adjusted only table.
   - Pick a monthly row and check that its high and low are the extremes of the daily rows in that month.

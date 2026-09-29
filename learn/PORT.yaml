@@ -8,9 +8,10 @@ what_it_does: |
   weights, benchmarks and risk decomposition.
 
   This app takes a typed list of tickers and weights (for example `AAPL:0.6,MSFT:0.4
-  PORT`), assumes a fixed-weight, rebalanced-daily portfolio, and adds a volatility
-  section: historical (flat) volatility plotted against a GARCH(1,1) fit's time-varying
-  estimate, on the portfolio's own return series.
+  PORT`), with a choice of two weighting modes (fixed-weight, rebalanced daily; or
+  buy-and-hold, weights left to drift), a Sharpe ratio, a per-holding volatility
+  breakdown, and a volatility section: historical (flat) volatility plotted against a
+  GARCH(1,1) fit's time-varying estimate, on the portfolio's own return series.
 
 why_analysts_use_it: |
   A single stock's numbers don't tell you how a combination of them behaves together.
@@ -22,11 +23,32 @@ why_analysts_use_it: |
 key_concepts:
   - term: Fixed weights vs buy-and-hold
     explanation: >
-      This app assumes the portfolio is rebalanced back to its target weights every day:
-      the portfolio's daily return is the weighted average of each holding's return that
-      day, using the same weights every day. A real buy-and-hold portfolio's weights
-      drift as prices move (a winner becomes a bigger share over time), which is a
-      different, harder calculation this app does not do.
+      Fixed weight (rebalanced daily) reapplies the same weights every day: the
+      portfolio's daily return is the weighted average of each holding's return that
+      day, using the ORIGINAL weights, every day, as if you sold and rebought to get
+      back to target after every move. Buy-and-hold instead sets the weights once, at
+      the start, then lets them drift as each holding's own value compounds: a winner
+      becomes a bigger share over time, so its later returns matter more than a
+      fixed-weight calculation would suggest. Both are legitimate, different questions
+      ("what if I rebalanced daily" vs "what actually happens if I just hold"), and
+      this app lets you switch between them and see the two total returns diverge.
+  - term: Sharpe ratio
+    explanation: >
+      (annualised return - risk-free rate) / annualised volatility: how much excess
+      return (above what you could earn risk-free) a portfolio delivers per unit of
+      risk taken. A higher Sharpe ratio means a better risk-adjusted return, not
+      necessarily a higher return outright, a portfolio with a lower return but far
+      lower volatility can have a higher Sharpe ratio than a higher-return, much
+      bumpier one. This app uses the US 3-month Treasury yield as the risk-free rate,
+      a standard, recognisable choice, regardless of what the basket actually holds.
+  - term: Per-holding volatility and diversification
+    explanation: >
+      Each holding's own annualised volatility, calculated completely independently of
+      the others, sits next to the portfolio's combined volatility. Comparing the two
+      is the clearest way to see diversification directly: if the portfolio's figure
+      is meaningfully lower than a simple average of the individual figures, the
+      holdings are not moving in lockstep, and combining them has genuinely reduced
+      risk, not just spread it around.
   - term: Weight normalisation
     explanation: >
       Weights don't have to be typed as fractions that sum to 1. `AAPL:2,MSFT:1` is
@@ -62,16 +84,20 @@ key_concepts:
       variance reverts to a long-run level of omega / (1 - alpha - beta).
 
 how_to_read_the_output:
-  - Check the weights table first; they are normalised, so they may not exactly match what you typed if it didn't already sum to 1.
+  - Check the weighting mode first (fixed weight or buy-and-hold); it changes the return, volatility and every other number, not just the weights table.
+  - Check the weights table next; they are normalised, so they may not exactly match what you typed if it didn't already sum to 1. Under buy-and-hold, these are the starting weights only.
   - Read total return, volatility and max drawdown together. A high return with a deep drawdown means a bumpy ride to get there, not a smooth one.
+  - Read the Sharpe ratio as return per unit of risk, not as a return figure itself; a small positive number is normal, it is not a percentage.
   - On the correlation matrix, look for pairs close to +1 (little diversification benefit between them) and pairs near 0 or negative (real diversification).
+  - Compare the per-holding volatility table with the portfolio's combined volatility above it. A lower combined figure than the individual holdings is the diversification effect made visible.
   - On the GARCH chart, check whether the time-varying line is currently above or below the flat line. Above means the portfolio is more volatile right now than its long-run average; below means calmer than usual.
   - alpha and beta describe the fitted model, not a forecast guarantee. A high beta (close to 1) means today's volatility regime is expected to persist for a while, not forever.
 
 common_mistakes:
   - Assuming the reported volatility applies to each holding individually; it is the combined portfolio's volatility, which can be lower than any single holding's if they diversify each other.
   - Reading a correlation of, say, 0.3 as "30% similar"; correlation is not a percentage of similarity, it is a specific statistical measure of linear co-movement.
-  - Treating this app's fixed-weight, rebalanced-daily assumption as if it matched a buy-and-hold portfolio's actual behaviour.
+  - Comparing a fixed-weight result with a buy-and-hold result without noticing the mode has changed; they answer different questions and will not match, especially over a long or volatile window.
+  - Reading the Sharpe ratio's risk-free rate (a US Treasury yield) as automatically the right benchmark for a basket that holds no US assets at all; it is a standard, not a perfect, choice.
   - Reading GARCH's alpha and beta as returns or performance figures; they describe how volatility itself evolves, not the portfolio's growth.
   - Over-trusting a GARCH fit on a short or unusual return history; a poor or unstable fit is possible, especially with fewer trading days of overlapping data.
 
@@ -97,13 +123,24 @@ interview_questions:
       model would no longer be stationary, meaning variance would not settle to a
       long-run level at all, it would tend to grow without bound, which is not
       realistic for most real markets over the long run.
-  - question: Your app assumes daily rebalancing to fixed weights. What would be different about a buy-and-hold portfolio?
+  - question: How does your app calculate a buy-and-hold portfolio's return, and how is it different from the fixed-weight calculation?
     model_answer: >
-      In buy-and-hold, weights drift as prices move; a holding that outperforms becomes
-      a larger share of the portfolio over time, so its later returns matter more than
-      a fixed-weight calculation would suggest. Computing a true buy-and-hold return
-      needs to track each holding's actual position size over time, not just apply the
-      same starting weights to every day's returns.
+      Each holding starts with a value equal to its weight (so the weights sum to a
+      total starting value of 1), and each holding's value then compounds
+      independently at its own daily return. Summing all the holdings' values each day
+      gives the portfolio's value path, and the day-to-day change in that path is the
+      buy-and-hold return. The fixed-weight calculation instead reapplies the original
+      weights to every day's returns, as if rebalancing back to target daily. The two
+      match exactly on day one, since no drift has happened yet, and diverge from day
+      two onward.
+  - question: Your Sharpe ratio uses a US Treasury yield as the risk-free rate. Is that always the right choice?
+    model_answer: >
+      Not necessarily, it is a standard, widely recognised benchmark, not a perfect
+      match for every basket. A UK-only or Japan-only portfolio arguably should use
+      that country's own risk-free rate instead, since the "risk-free" rate an investor
+      could actually earn without taking market risk differs by currency and market.
+      I chose one consistent default rather than trying to infer the "right" rate from
+      an arbitrary mix of tickers, and said so rather than presenting it as exact.
   - question: How would you verify a GARCH fit is reasonable, beyond trusting the library?
     model_answer: >
       Check that alpha + beta is under 1 (a stationary process), that the fitted
@@ -120,7 +157,9 @@ terminal_checklist:
   - Find the volatility and correlation figures the terminal reports for a basket and compare them with this app's numbers for the same tickers and weights over a similar window.
   - Find a historical volatility function (often HVT or HVG) and compare a single stock's flat annualised volatility with what this app computes for that stock alone.
   - Look for a GARCH or volatility-forecast feature (availability varies) and compare its shape with this app's GARCH chart.
-  - Check whether the terminal's default portfolio calculation assumes rebalancing or buy-and-hold weights, and how to switch between them.
+  - Check whether the terminal's default portfolio calculation assumes rebalancing or buy-and-hold weights, and how to switch between them; compare the total return under each mode with this app's two modes for the same basket.
+  - Find the terminal's Sharpe ratio for a basket and check which risk-free rate it uses; compare it with this app's US Treasury yield choice.
+  - Find a per-position or per-holding risk breakdown and compare it with this app's per-holding volatility table.
 
 related_functions:
   - GP

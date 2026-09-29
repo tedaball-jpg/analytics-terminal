@@ -1,3 +1,5 @@
+import datetime as dt
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
@@ -5,6 +7,7 @@ import streamlit as st
 from analytics import (
     annualised_volatility,
     build_cross_matrix,
+    buy_and_hold_returns,
     correlation_matrix,
     curve_spread,
     is_curve_inverted,
@@ -12,6 +15,8 @@ from analytics import (
     max_drawdown,
     normalize_weights,
     portfolio_returns,
+    rebase,
+    sharpe_ratio,
     simple_returns,
     total_return,
     trailing_range,
@@ -24,6 +29,9 @@ from macro_data import (
     fetch_cpi_readings,
     fetch_gdp_readings,
     fetch_units_per_usd,
+    fetch_us_cpi_readings,
+    fetch_us_fed_funds_readings,
+    fetch_us_gdp_readings,
     fetch_yield_curve,
 )
 from market_data import (
@@ -36,10 +44,12 @@ from market_data import (
     format_percent,
     resample_prices,
 )
-from markets import to_yfinance_ticker
+from markets import MARKET_SUFFIXES, to_yfinance_ticker
 from portfolio import fetch_prices as fetch_portfolio_prices
 from portfolio import plot_correlation_heatmap, plot_garch_vs_flat, plot_price_history
 from volatility import fit_garch
+
+DEFAULT_WINDOW_DAYS = 365 * 2  # matches the app's previous fixed 2-year window
 
 # Label shown to the user -> the `adjusted` flag passed to the data layer.
 PRICE_BASES = {
@@ -51,8 +61,24 @@ PRICE_BASES = {
 # Streamlit reruns the script on every click (including the Learn panel toggle),
 # so each download is cached instead of hitting Yahoo Finance each time.
 @st.cache_data(ttl=600, show_spinner="Fetching prices...")
-def fetch_ohlcv(yf_ticker, adjusted):
-    return fetch_price_history(yf_ticker, adjusted=adjusted)
+def fetch_ohlcv(yf_ticker, adjusted, start=None, end=None):
+    return fetch_price_history(yf_ticker, adjusted=adjusted, start=start, end=end)
+
+
+def choose_date_range(key_prefix):
+    """A From/To date picker, defaulting to the last 2 years (the app's old fixed
+    window). Returns (start, end) or None if the range picked is invalid (shows its
+    own error either way, so the caller can just check for None and stop)."""
+    today = dt.date.today()
+    col1, col2 = st.columns(2)
+    start = col1.date_input(
+        "From", value=today - dt.timedelta(days=DEFAULT_WINDOW_DAYS), max_value=today, key=f"{key_prefix}_start"
+    )
+    end = col2.date_input("To", value=today, max_value=today, key=f"{key_prefix}_end")
+    if start >= end:
+        st.error("The From date must be before the To date.")
+        return None
+    return start, end
 
 
 @st.cache_data(ttl=3600, show_spinner="Fetching company info...")
@@ -68,15 +94,25 @@ def choose_price_basis(key):
 def price_graph(command):
     yf_ticker = to_yfinance_ticker(command.ticker, command.market)
     adjusted = choose_price_basis("gp_price_basis")
-    prices = fetch_ohlcv(yf_ticker, adjusted)["Close"]
+    date_range = choose_date_range("gp")
+    if date_range is None:
+        return
+    start, end = date_range
+    prices = fetch_ohlcv(yf_ticker, adjusted, start, end)["Close"]
 
     if prices.empty:
         st.error(f"No price data found for {command.ticker} {command.market} ({yf_ticker})")
         return
 
-    fig = plot_price_history(prices, command.ticker)
-    st.pyplot(fig)
-    plt.close(fig)  # otherwise matplotlib keeps every rerun's figure in memory
+    compare_raw = st.text_input(
+        "Compare against (optional): TICKER MARKET, e.g. MSFT US", key="gp_compare"
+    )
+    if compare_raw.strip():
+        render_rebased_comparison(command, prices, compare_raw, adjusted, start, end)
+    else:
+        fig = plot_price_history(prices, command.ticker)
+        st.pyplot(fig)
+        plt.close(fig)  # otherwise matplotlib keeps every rerun's figure in memory
 
     drawdown = max_drawdown(prices)
     first, second, third = st.columns(3)
@@ -88,6 +124,36 @@ def price_graph(command):
         "Volatility is the standard deviation of daily returns times the square root of 252. "
         f"Worst fall: peak {drawdown.peak_date:%d %b %Y} to trough {drawdown.trough_date:%d %b %Y}. "
         "London stocks are quoted in pence."
+    )
+
+
+def render_rebased_comparison(command, base_prices, compare_raw, adjusted, start, end):
+    parts = compare_raw.strip().upper().split()
+    if len(parts) != 2 or parts[1] not in MARKET_SUFFIXES:
+        st.error(f"Expected TICKER MARKET, e.g. MSFT US. Known markets: {', '.join(sorted(MARKET_SUFFIXES))}")
+        return
+
+    compare_ticker, compare_market = parts
+    compare_yf_ticker = to_yfinance_ticker(compare_ticker, compare_market)
+    compare_prices = fetch_ohlcv(compare_yf_ticker, adjusted, start, end)["Close"]
+    if compare_prices.empty:
+        st.error(f"No price data found for {compare_ticker} {compare_market} ({compare_yf_ticker})")
+        return
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+    ax.plot(base_prices.index, rebase(base_prices), label=f"{command.ticker} {command.market}")
+    ax.plot(compare_prices.index, rebase(compare_prices), label=f"{compare_ticker} {compare_market}")
+    ax.axhline(100, color="black", linewidth=0.5)
+    ax.set_ylabel("Rebased to 100 at the start of the window")
+    ax.set_title("Rebased price comparison")
+    ax.legend()
+    fig.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
+    st.caption(
+        "Both series rescaled to start at 100 on the same date, so they are comparable "
+        "regardless of price level or currency. Uses the same price basis and date range "
+        "as the statistics below (which are still for the first ticker only)."
     )
 
 
@@ -137,7 +203,11 @@ def description(command):
 def historical_prices(command):
     yf_ticker = to_yfinance_ticker(command.ticker, command.market)
     adjusted = choose_price_basis("hp_price_basis")
-    prices = fetch_ohlcv(yf_ticker, adjusted)
+    date_range = choose_date_range("hp")
+    if date_range is None:
+        return
+    start, end = date_range
+    prices = fetch_ohlcv(yf_ticker, adjusted, start, end)
 
     if prices.empty:
         st.error(f"No price data found for {command.ticker} {command.market} ({yf_ticker})")
@@ -168,7 +238,8 @@ def historical_prices(command):
         },
     )
     st.caption(
-        "Last 2 years from Yahoo Finance. London stocks are quoted in pence. "
+        f"{prices.index[0]:%d %b %Y} to {prices.index[-1]:%d %b %Y}, from Yahoo Finance. "
+        "London stocks are quoted in pence. "
         "Weekly and monthly rows: open is the first day's, high the highest, low the lowest, "
         "close the last day's, volume the total. Each row is dated by its last trading day. "
         "Change % is the close against the previous row's close."
@@ -190,9 +261,24 @@ def fetch_bank_rate():
     return fetch_bank_rate_readings()
 
 
+@st.cache_data(ttl=3600, show_spinner="Fetching US economic data...")
+def fetch_us_cpi():
+    return fetch_us_cpi_readings()
+
+
+@st.cache_data(ttl=3600, show_spinner="Fetching US economic data...")
+def fetch_us_gdp():
+    return fetch_us_gdp_readings()
+
+
+@st.cache_data(ttl=3600, show_spinner="Fetching US economic data...")
+def fetch_us_fed_funds():
+    return fetch_us_fed_funds_readings()
+
+
 @st.cache_data(ttl=600, show_spinner="Fetching yield curve...")
-def fetch_curve():
-    return fetch_yield_curve()
+def fetch_curve(country):
+    return fetch_yield_curve(country)
 
 
 @st.cache_data(ttl=600, show_spinner="Fetching FX rates...")
@@ -221,26 +307,70 @@ def render_indicator(title, fetch, unit, window):
     st.line_chart(recent, height=160)
 
 
+# country -> [(title, fetch function, trend chart window), ...]. Adding a country means
+# adding a fetch function (in macro_data.py) and an entry here; economic_calendar itself
+# never changes.
+ECO_INDICATORS = {
+    "UK": [
+        ("CPI inflation (12-month rate)", fetch_cpi, 24),
+        ("GDP growth (quarter-on-quarter)", fetch_gdp, 12),
+        ("Bank Rate", fetch_bank_rate, 24),
+    ],
+    "US": [
+        ("CPI inflation (12-month rate)", fetch_us_cpi, 24),
+        ("GDP growth (annualised quarter-on-quarter)", fetch_us_gdp, 12),
+        ("Fed Funds Rate", fetch_us_fed_funds, 24),
+    ],
+}
+
+ECO_SOURCE_CAPTIONS = {
+    "UK": "CPI and GDP from the Office for National Statistics; Bank Rate from the Bank of England.",
+    "US": (
+        "CPI and GDP growth from FRED (Federal Reserve Economic Data); the 12-month CPI rate is "
+        "computed here from FRED's CPI index level, since FRED has no ready-made US rate series "
+        "the way ONS provides for the UK. GDP growth here is annualised quarter-on-quarter "
+        "(FRED's convention), not directly comparable to the UK's non-annualised figure. "
+        "Fed Funds Rate from FRED."
+    ),
+}
+
+
 def economic_calendar(command):
-    # command.ticker is always "UK" (the only subject command_parser.MACRO_SUBJECTS["ECO"]
-    # allows), since ONS and the Bank of England only give this app UK data for free.
-    first, second, third = st.columns(3)
-    with first:
-        render_indicator("CPI inflation (12-month rate)", fetch_cpi, "%", window=24)
-    with second:
-        render_indicator("GDP growth (quarter-on-quarter)", fetch_gdp, "%", window=12)
-    with third:
-        render_indicator("Bank Rate", fetch_bank_rate, "%", window=24)
+    country = command.ticker
+    indicators = ECO_INDICATORS[country]
+    columns = st.columns(len(indicators))
+    for column, (title, fetch, window) in zip(columns, indicators):
+        with column:
+            render_indicator(title, fetch, "%", window=window)
     st.caption(
-        "CPI and GDP from the Office for National Statistics; Bank Rate from the Bank of "
-        "England. The change shown is in percentage points against the previous reading, "
-        "not a percentage change."
+        f"{ECO_SOURCE_CAPTIONS[country]} The change shown is in percentage points against "
+        "the previous reading, not a percentage change."
     )
 
 
+GC_TITLES = {"US": "US Treasury yield curve", "UK": "UK gilt / interbank rate curve"}
+
+GC_CAPTIONS = {
+    "US": (
+        "A negative spread (short-term yields above long-term yields) is called an "
+        "inversion, and has preceded most US recessions historically, though the lead "
+        "time varies widely and not every inversion is followed by one. "
+        "The 2-year point is from FRED (Yahoo has no free US 2-year Treasury series); "
+        "the rest is from Yahoo's daily Treasury indices."
+    ),
+    "UK": (
+        "UK data is from FRED (mirroring the OECD), monthly rather than daily, and only two "
+        "points: the '3M' point is an interbank rate, a proxy for a T-bill yield rather than "
+        "the same instrument, and there is no free UK 5-year or 30-year point. A negative "
+        "spread is still called an inversion, for the same reason as the US curve."
+    ),
+}
+
+
 def yield_curve(command):
+    country = command.ticker
     try:
-        curve = fetch_curve()
+        curve = fetch_curve(country)
     except Exception as error:  # yfinance raises many different network and parsing errors
         st.error(f"Could not fetch the yield curve: {error}")
         return
@@ -258,7 +388,7 @@ def yield_curve(command):
     ax.set_xticks(maturities, labels)
     ax.set_xlabel("Maturity")
     ax.set_ylabel("Yield (%)")
-    ax.set_title("US Treasury yield curve")
+    ax.set_title(GC_TITLES[country])
     fig.tight_layout()
     st.pyplot(fig)
     plt.close(fig)
@@ -267,14 +397,7 @@ def yield_curve(command):
         spread = curve_spread(curve, "3M", "10Y")
         inverted = is_curve_inverted(spread)
         st.metric("10-year minus 3-month spread", f"{spread:+.2f} pp", delta="Inverted" if inverted else "Normal", delta_color="inverse")
-        st.caption(
-            "A negative spread (short-term yields above long-term yields) is called an "
-            "inversion, and has preceded most US recessions historically, though the lead "
-            "time varies widely and not every inversion is followed by one. "
-            "Yahoo has no free 2-year Treasury series, so the curve has a gap between 3 "
-            "months and 5 years, and the spread uses 3-month rather than the also common "
-            "10-year-minus-2-year measure."
-        )
+    st.caption(GC_CAPTIONS[country])
 
 
 def fx_cross_rates(command):
@@ -309,9 +432,14 @@ def fx_cross_rates(command):
 
 MIN_PORTFOLIO_HISTORY = 30  # rows; below this, correlation and GARCH stop being meaningful
 
+WEIGHTING_MODES = {
+    "Fixed weight (rebalanced daily)": False,
+    "Buy-and-hold (weights drift)": True,
+}
+
 
 @st.cache_data(ttl=600, show_spinner="Fetching prices and fitting the portfolio...")
-def compute_portfolio(tickers, weights):
+def compute_portfolio(tickers, weights, buy_and_hold):
     """Fetch, then run every portfolio calculation, in one cached call. Raises ValueError
     (a clean message) for bad input data, so the handler doesn't need to inspect the
     result to find out whether it worked."""
@@ -330,8 +458,19 @@ def compute_portfolio(tickers, weights):
 
     normalised = normalize_weights(list(weights))
     returns = simple_returns(prices)
-    port_returns = portfolio_returns(returns, normalised)
+    port_returns = (
+        buy_and_hold_returns(returns, normalised) if buy_and_hold else portfolio_returns(returns, normalised)
+    )
     value_index = (1 + port_returns).cumprod()  # a "price" series starting at 1, for max_drawdown
+
+    # The US 3-month Treasury yield as a standard, recognisable risk-free rate for
+    # Sharpe, rather than the UK Bank Rate the old standalone script used for its
+    # all-UK portfolio - PORT's basket can be any mix of tickers, so a UK-specific rate
+    # would be an odd default. If it can't be fetched, Sharpe is just left out.
+    try:
+        risk_free_rate = fetch_yield_curve("US")["3M"] / 100
+    except Exception:
+        risk_free_rate = None
 
     return {
         "weights": normalised,
@@ -339,6 +478,9 @@ def compute_portfolio(tickers, weights):
         "correlation": correlation_matrix(returns),
         "drawdown": max_drawdown(value_index),
         "flat_volatility": annualised_volatility(port_returns),
+        "per_holding_volatility": annualised_volatility(returns),  # a Series, one per ticker
+        "risk_free_rate": risk_free_rate,
+        "sharpe": sharpe_ratio(port_returns, risk_free_rate) if risk_free_rate is not None else None,
         "garch": fit_garch(port_returns),
     }
 
@@ -347,8 +489,11 @@ def portfolio_analytics(command):
     tickers = tuple(holding.ticker for holding in command.holdings)
     weights = tuple(holding.weight for holding in command.holdings)
 
+    mode_label = st.radio("Weighting", list(WEIGHTING_MODES), horizontal=True, key="port_mode")
+    buy_and_hold = WEIGHTING_MODES[mode_label]
+
     try:
-        result = compute_portfolio(tickers, weights)
+        result = compute_portfolio(tickers, weights, buy_and_hold)
     except ValueError as error:
         st.error(str(error))
         return
@@ -356,23 +501,40 @@ def portfolio_analytics(command):
         st.error(f"Could not build the portfolio: {error}")
         return
 
-    st.markdown("**Weights**")
+    st.markdown("**Weights**" + (" (starting)" if buy_and_hold else ""))
     weights_table = pd.DataFrame(
         {"Ticker": tickers, "Weight": [format_percent(w) for w in result["weights"]]}
     ).set_index("Ticker")
     st.table(weights_table)
+    if buy_and_hold:
+        st.caption("These are the starting weights; buy-and-hold lets them drift as prices move.")
 
     st.markdown("**Cumulative return**")
     st.line_chart(result["value_index"] * 100 - 100, height=300)
 
     drawdown = result["drawdown"]
-    first, second, third = st.columns(3)
-    first.metric("Total return", format_percent(total_return(result["value_index"])))
-    second.metric("Annualised volatility", format_percent(result["flat_volatility"]))
-    third.metric("Max drawdown", format_percent(drawdown.depth))
+    show_sharpe = result["sharpe"] is not None
+    metric_cols = st.columns(4 if show_sharpe else 3)
+    metric_cols[0].metric("Total return", format_percent(total_return(result["value_index"])))
+    metric_cols[1].metric("Annualised volatility", format_percent(result["flat_volatility"]))
+    metric_cols[2].metric("Max drawdown", format_percent(drawdown.depth))
+    if show_sharpe:
+        metric_cols[3].metric("Sharpe ratio", f"{result['sharpe']:.2f}")
+
+    mode_caption = (
+        "Buy-and-hold: weights drift as prices move."
+        if buy_and_hold
+        else "Fixed weights, rebalanced daily."
+    )
+    sharpe_caption = (
+        f" Sharpe ratio uses the US 3-month Treasury yield ({format_percent(result['risk_free_rate'])}) "
+        "as the risk-free rate, a standard choice regardless of what the basket actually holds."
+        if show_sharpe
+        else " Sharpe ratio unavailable (could not fetch a risk-free rate)."
+    )
     st.caption(
-        "Fixed weights, rebalanced daily (not buy-and-hold, whose weights would drift as "
-        f"prices move). Worst fall: peak {drawdown.peak_date:%d %b %Y} to trough {drawdown.trough_date:%d %b %Y}."
+        f"{mode_caption} Worst fall: peak {drawdown.peak_date:%d %b %Y} to trough "
+        f"{drawdown.trough_date:%d %b %Y}.{sharpe_caption}"
     )
 
     st.markdown("**Correlation matrix** (daily returns)")
@@ -396,6 +558,19 @@ def portfolio_analytics(command):
         f"beta={garch.beta:.3f} (how much of today's variance persists), "
         f"alpha+beta={garch.alpha + garch.beta:.3f} (must be under 1, or variance would never settle). "
         "Fitted on the portfolio's own daily returns, not on each stock separately."
+    )
+
+    st.markdown("**Per-holding volatility**")
+    per_holding = result["per_holding_volatility"]
+    st.dataframe(
+        pd.DataFrame(
+            {"Ticker": per_holding.index, "Annualised volatility": [format_percent(v) for v in per_holding.values]}
+        ).set_index("Ticker")
+    )
+    st.caption(
+        "Each holding's own volatility, calculated on its own (not affected by the others). "
+        "Compare with the portfolio's combined volatility above: the portfolio figure is "
+        "usually lower than a simple average of these, which is the diversification effect."
     )
 
 

@@ -20,11 +20,11 @@ MIN_HOLDINGS = 2
 SECURITY_TYPES = {"EQUITY"}
 
 # The subjects each macro function understands, given what free data is actually
-# available: UK economic releases (ECO), the US Treasury curve (GC, no free UK gilt
-# yield data), and a small basket of major currencies (FXC).
+# available: UK and US economic releases (ECO), the US and UK yield curves (GC), and a
+# small basket of major currencies (FXC).
 MACRO_SUBJECTS = {
-    "ECO": {"UK"},
-    "GC": {"US"},
+    "ECO": {"UK", "US"},
+    "GC": {"US", "UK"},
     "FXC": {"USD", "GBP", "EUR", "JPY"},
 }
 

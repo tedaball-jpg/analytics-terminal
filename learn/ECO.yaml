@@ -7,11 +7,12 @@ what_it_does: |
   covers dozens of indicators across many countries with a forward-looking calendar of
   release dates.
 
-  This app only covers the **UK**, with three indicators it already had the fetch logic
-  for: CPI inflation (12-month rate), GDP growth (quarter-on-quarter) and the Bank of
-  England's Bank Rate, each shown as its latest reading, the change from the previous
-  reading, and a short trend chart. It has no forecasts and no forward calendar, only
-  what has already been released.
+  This app covers **UK** and **US**, three indicators each, shown as the latest
+  reading, the change from the previous reading, and a short trend chart. UK: CPI
+  inflation, GDP growth and the Bank of England's Bank Rate, from ONS and the Bank of
+  England. US: CPI inflation, GDP growth and the Fed Funds Rate, from FRED (Federal
+  Reserve Economic Data). It has no forecasts and no forward calendar, only what has
+  already been released.
 
 why_analysts_use_it: |
   Economic releases move markets, and the surprise (actual versus forecast) usually
@@ -45,18 +46,36 @@ key_concepts:
       GDP and other statistics are often revised in later releases as more complete data
       comes in. The "latest reading" a calendar shows is not guaranteed to be the final
       number for that period.
+  - term: An index level is not the same as a rate
+    explanation: >
+      ONS publishes the UK's CPI as a ready-made 12-month rate, but the US source
+      (FRED) only gives the raw CPI index level (a number like 334.1 with no meaning on
+      its own). This app computes the US 12-month rate itself as
+      CPI_this_month / CPI_12_months_ago - 1, the standard definition of inflation. The
+      two countries' CPI figures are computed differently under the hood but land on
+      the same kind of number.
+  - term: Annualised vs non-annualised growth rates
+    explanation: >
+      The US GDP figure from FRED is quarter-on-quarter growth already annualised (it
+      answers "if this quarter's growth rate continued for a full year, what would the
+      year look like"), which is the convention FRED and most US commentary use. The
+      UK figure from ONS is the quarter's growth on its own, not annualised. The two
+      are not directly comparable side by side without converting one to match the
+      other's convention.
 
 how_to_read_the_output:
   - Read the change in percentage points, not as a percentage of the previous value.
   - For GDP, remember quarter-on-quarter is a small number (often under 1%) even in a healthy economy; it is not the same as annual growth.
   - For Bank Rate, an unchanged reading between two release dates does not mean nothing happened; check the Monetary Policy Committee's meeting calendar for the next scheduled decision.
   - This app has no forecast, so a large or small change here says nothing about whether it surprised the market.
+  - Comparing UK and US GDP growth side by side requires remembering the US figure is annualised and the UK's is not; they are not the same kind of number.
 
 common_mistakes:
   - Reading a percentage-point change as a percentage change (a move from 2.3% to 2.1% is -0.2 points, not -8.7%).
   - Comparing quarter-on-quarter GDP growth directly with a headline annual growth figure quoted elsewhere.
+  - Comparing the UK's non-annualised GDP growth directly with the US's annualised figure, as if they were on the same scale.
   - Treating a GDP or CPI figure as final; check whether a later release has revised it.
-  - Assuming a flat Bank Rate over several weeks means the Bank of England has made no decision, rather than that no meeting has happened yet.
+  - Assuming a flat Bank Rate or Fed Funds Rate over several weeks means no decision has been made, rather than that no meeting has happened yet.
 
 interview_questions:
   - question: Why report an inflation change in percentage points rather than a percentage?
@@ -86,13 +105,20 @@ interview_questions:
       to an initial GDP or employment figure can later look overdone or understated once
       the number is revised, so analysts distinguish "first estimate" from later,
       firmer figures.
+  - question: Your app computes the US CPI rate itself instead of using a ready-made series. Why, and how?
+    model_answer: >
+      FRED, unlike ONS for the UK, has no ready-made US 12-month CPI rate series, only
+      the raw index level. I compute the 12-month rate as this month's index divided
+      by the index from 12 months ago, minus one, which is the standard definition of
+      a 12-month inflation rate, and matches what a ready-made rate series would show.
 
 terminal_checklist:
-  - Run `ECO <GO>` and find how to filter it to the United Kingdom.
-  - Find the next scheduled UK CPI, GDP and Bank Rate release dates.
-  - Find the forecast (consensus) figure for the next CPI release, then compare the actual once it is out, to see whether it was a surprise.
-  - Look up the current UK CPI, GDP and Bank Rate figures on the terminal and compare them with this app's numbers and dates.
-  - Find whether the most recent UK GDP figure has been revised since its first release.
+  - Run `ECO <GO>` and find how to filter it to the United Kingdom, then to the United States.
+  - Find the next scheduled UK and US CPI, GDP and rate-decision release dates.
+  - Find the forecast (consensus) figure for the next CPI release in either country, then compare the actual once it is out, to see whether it was a surprise.
+  - Look up the current UK and US CPI, GDP and policy rate figures on the terminal and compare them with this app's numbers and dates for `UK ECO` and `US ECO`.
+  - Check whether the terminal's US GDP growth figure is annualised or not, and compare its convention with the UK figure's.
+  - Find whether the most recent UK or US GDP figure has been revised since its first release.
 
 related_functions:
   - GC

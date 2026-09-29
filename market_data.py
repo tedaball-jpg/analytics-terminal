@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import pandas as pd
 import yfinance as yf
 
@@ -27,11 +29,20 @@ COMPANY_FIELDS = [
 ]
 
 
-def fetch_price_history(yf_ticker, period="2y", interval="1d", adjusted=True):
+def fetch_price_history(yf_ticker, period="2y", interval="1d", adjusted=True, start=None, end=None):
     """Daily OHLCV. adjusted=True is adjusted for splits and dividends (use it for returns);
     adjusted=False is adjusted for splits only (use it for price levels). Yahoo does not
-    provide raw, never-adjusted quotes."""
-    data = yf.download(yf_ticker, period=period, interval=interval, auto_adjust=adjusted, progress=False)
+    provide raw, never-adjusted quotes.
+
+    Pass start/end (dates) for an explicit window; otherwise `period` (e.g. "2y") is
+    used, ending at the latest available close. start/end take priority if both are given.
+    `end` is treated as inclusive (a user picking "to today" expects today's close if it
+    exists); yfinance's own `end` is exclusive, so it is pushed forward a day internally."""
+    if start is not None:
+        yf_end = end + timedelta(days=1) if end is not None else None
+        data = yf.download(yf_ticker, start=start, end=yf_end, interval=interval, auto_adjust=adjusted, progress=False)
+    else:
+        data = yf.download(yf_ticker, period=period, interval=interval, auto_adjust=adjusted, progress=False)
     if data.empty:
         return pd.DataFrame(columns=OHLCV)
     # yfinance labels columns (field, ticker); with one ticker we only need the field.

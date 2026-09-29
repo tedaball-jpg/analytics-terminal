@@ -7,10 +7,13 @@ what_it_does: |
   terminal you can pick the country, compare it against a past date or another
   country's curve, and switch between yield and spread views.
 
-  This app only shows the **US Treasury curve**, because Yahoo Finance has no free UK
-  gilt yield data. It plots four points (3-month, 5-year, 10-year, 30-year, from Yahoo's
-  ^IRX/^FVX/^TNX/^TYX indices, already quoted in percent) and the 10-year-minus-3-month
-  spread, the input to the New York Fed's own recession probability model.
+  This app shows two curves. **US Treasury**: five points (3-month, 2-year, 5-year,
+  10-year, 30-year), daily, from Yahoo's ^IRX/^FVX/^TNX/^TYX indices plus a 2-year point
+  from FRED (Federal Reserve Economic Data). **UK**: only two points (a 3-month
+  interbank rate and a 10-year gilt yield), monthly, both from FRED, which mirrors OECD
+  data for the UK - a much sparser, lower-quality picture than the US curve, documented
+  below. Both show the 10-year-minus-3-month spread, the input to the New York Fed's own
+  recession probability model.
 
 why_analysts_use_it: |
   The curve's shape is read as a signal about what the market expects for growth and
@@ -57,20 +60,36 @@ key_concepts:
     explanation: >
       The gap from 3 months to 5 years is much bigger than 5 years to 10 years, so this
       app's chart places each point at its actual years-to-maturity rather than spacing
-      the four points evenly, otherwise the shape would be distorted and the curve's
+      the points evenly, otherwise the shape would be distorted and the curve's
       steepness at the short end (where a lot happens) would be hidden.
+  - term: Why the UK curve looks different in kind, not just in shape
+    explanation: >
+      The UK's "3M" point is an interbank rate (the rate banks lend to each other for
+      three months), not a government T-bill yield like the US's, so it is a proxy for
+      the short end, not the same instrument. UK data also updates monthly, not daily
+      like the US series, and there is no free UK 5-year or 30-year point, so the curve
+      itself is coarser. None of this means UK rates are somehow worse; it means this
+      particular free data source for them is thinner than the free source for the US.
+  - term: Government bond yields as a market-based measure
+    explanation: >
+      A yield curve reflects what real investors are willing to accept to lend money,
+      not a survey or a forecast, which is part of why it is trusted as a market
+      signal. That is also why data quality matters: a monthly, proxy-instrument UK
+      curve is a real market measure, just a much blurrier snapshot than a daily
+      curve built from the actual securities.
 
 how_to_read_the_output:
   - Look at the overall slope first. Rising left to right is normal, falling is inverted, roughly flat is flat.
   - Check the 10-year-minus-3-month spread number and whether it is flagged Inverted. A negative spread is the inversion signal, not the absolute level of yields.
   - Remember this is one day's snapshot. Look at GP-style history of the spread itself (not built here) to see whether it has been inverted for a while or just crossed zero.
   - Do not treat an inversion as a precise recession-timing tool. It has been a reliable warning, not a stopwatch.
-  - This app only has four points and only the US curve. A missing point (shown as a gap) means Yahoo did not return data for that maturity that day.
+  - Check which country you asked for. The US curve has five daily points; the UK curve has only two, monthly, and its short end is an interbank rate, not a T-bill.
+  - A missing point (shown as a gap in the chart) means the source did not return data for that maturity that day.
 
 common_mistakes:
   - Reading the curve's overall level (are yields high or low) as the same thing as its shape (is it rising or falling). Both are meaningful, but they answer different questions.
   - Treating an inversion as an exact recession-timing signal rather than a historically reliable but imprecise warning.
-  - Comparing two curves from different countries as if a spread between them meant the same thing as a spread within one curve (a US-UK yield gap reflects different things, like currency and monetary policy differences, not a single country's growth outlook).
+  - Comparing the US and UK spreads shown here as if they meant the same thing. The UK one is built from a coarser, monthly, proxy-instrument data source, so small differences between the two countries' spreads may just be data quality, not a real economic difference.
   - Assuming the curve is smooth between the plotted points. The real curve can bend between maturities that are not shown here.
   - Not checking the date. A stale or delayed price can make the curve look wrong on a fast-moving day.
 
@@ -92,10 +111,19 @@ interview_questions:
   - question: Which spread does your app use to flag an inversion, and why might that differ from what you hear quoted in the news?
     model_answer: >
       The 10-year minus 3-month spread, because it is the input to the New York Fed's
-      recession probability model and Yahoo provides both points for free. The news more
-      often quotes the 10-year minus 2-year spread, which is the Fed's other commonly
-      cited measure. The two usually move together but can differ, and Yahoo has no free
-      2-year Treasury series, so I could not show that one here.
+      recession probability model. The news more often quotes the 10-year minus 2-year
+      spread, the Fed's other commonly cited measure. The two usually move together but
+      can differ. My app now also shows the 2-year point, sourced from FRED rather than
+      Yahoo, since Yahoo has no free US 2-year Treasury series, so a 10-year-minus-2-year
+      figure could be added the same way.
+  - question: Your UK curve only has two points and updates monthly. Why not just treat it the same as the US curve?
+    model_answer: >
+      Because it isn't the same kind of data. It comes from FRED mirroring OECD data
+      rather than direct daily government securities data, its short-end point is an
+      interbank rate rather than a T-bill yield, and monthly data hides anything that
+      happens between readings. I show it because it's the best free source I could
+      find, but I flag the difference rather than presenting both curves as equally
+      reliable.
   - question: Is a flat curve the same signal as an inverted one?
     model_answer: >
       No. A flat curve suggests the market is uncertain about the direction of growth
@@ -111,10 +139,10 @@ interview_questions:
 
 terminal_checklist:
   - Run `GC <GO>` and identify which country's curve is shown by default and how to change it.
-  - Set the country to United States and compare the shape and the exact yields with this app's chart on the same day.
-  - Find the 2-year and 10-year points on the terminal (not available here) and calculate the 10-year-minus-2-year spread. Compare it with this app's 10-year-minus-3-month spread.
+  - Set the country to United States and compare the shape and the exact yields (all five points) with this app's `US GC` on the same day.
+  - Find the 10-year and 2-year points on the terminal and calculate the 10-year-minus-2-year spread; compare it with this app's 10-year-minus-3-month spread.
+  - Set the country to United Kingdom and compare it with this app's `UK GC`. Check how many points the terminal shows for the UK and at what frequency, and how that compares with this app's two-point, monthly UK curve.
   - Find a setting to overlay a past date's curve on today's, and note how the shape has changed.
-  - Switch to a different country's curve (for example the UK) and compare its shape with the US curve on the same day.
   - Look up when the US curve last inverted and check how long it stayed inverted before any subsequent recession.
 
 related_functions:

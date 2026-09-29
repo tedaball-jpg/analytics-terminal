@@ -92,6 +92,21 @@ def test_each_macro_function_has_its_own_subject_universe():
     assert not isinstance(parse_command("GBP FXC"), ParseError)
 
 
+def test_gc_accepts_both_us_and_uk():
+    assert parse_command("US GC") == Command(ticker="US", market=None, function="GC")
+    assert parse_command("UK GC") == Command(ticker="UK", market=None, function="GC")
+
+
+def test_eco_accepts_both_uk_and_us():
+    assert parse_command("UK ECO") == Command(ticker="UK", market=None, function="ECO")
+    assert parse_command("US ECO") == Command(ticker="US", market=None, function="ECO")
+
+
+def test_widened_macro_subjects_still_reject_everything_else():
+    assert isinstance(parse_command("FR GC"), ParseError)
+    assert isinstance(parse_command("FR ECO"), ParseError)
+
+
 def test_equity_functions_still_reject_a_macro_style_command():
     result = parse_command("UK GP")
     assert isinstance(result, ParseError)
