@@ -20,13 +20,17 @@ finance concept next to the result.
 
 ## Screenshots
 
-| Command bar | GP — price chart + statistics |
+| Command bar | GP — date range + rebased two-security comparison |
 |---|---|
-| ![Command bar](screenshots/home.jpg) | ![GP price chart](screenshots/gp.jpg) |
+| ![Command bar](screenshots/home.jpg) | ![GP rebased comparison](screenshots/gp_rebased.jpg) |
 
-| PORT — portfolio correlation | PORT — GARCH(1,1) vs flat volatility |
+| GC — US Treasury curve (5 points, including the FRED 2-year) | PORT — buy-and-hold mode + Sharpe ratio |
 |---|---|
-| ![Correlation matrix](screenshots/port.jpg) | ![GARCH volatility chart](screenshots/garch.jpg) |
+| ![GC yield curve](screenshots/gc.jpg) | ![PORT Sharpe ratio](screenshots/port_sharpe.jpg) |
+
+| PORT — per-holding volatility | PORT — GARCH(1,1) vs flat volatility |
+|---|---|
+| ![Per-holding volatility](screenshots/port_per_holding.jpg) | ![GARCH volatility chart](screenshots/garch.jpg) |
 
 ## What it does
 
